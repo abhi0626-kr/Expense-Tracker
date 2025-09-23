@@ -5,6 +5,7 @@ import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon } from "lucide-r
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
+import { EditAccount } from "./EditAccount";
 import { SpendingChart } from "./SpendingChart";
 import { useToast } from "@/hooks/use-toast";
 
@@ -29,6 +30,7 @@ export interface Transaction {
 const Dashboard = () => {
   const { toast } = useToast();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([
     {
       id: "1",
@@ -116,6 +118,43 @@ const Dashboard = () => {
     });
   };
 
+  const handleDeleteTransaction = (transactionId: string) => {
+    const transaction = transactions.find(t => t.id === transactionId);
+    if (!transaction) return;
+
+    setTransactions(prev => prev.filter(t => t.id !== transactionId));
+    
+    // Revert account balance
+    setAccounts(prev => prev.map(account => {
+      if (account.id === transaction.accountId) {
+        const balanceChange = transaction.type === "income" 
+          ? -transaction.amount 
+          : transaction.amount;
+        return { ...account, balance: account.balance + balanceChange };
+      }
+      return account;
+    }));
+
+    toast({
+      title: "Transaction deleted",
+      description: "Your transaction has been successfully removed.",
+    });
+  };
+
+  const handleUpdateAccount = (accountId: string, updatedAccount: Omit<Account, "id">) => {
+    setAccounts(prev => prev.map(account => 
+      account.id === accountId 
+        ? { ...account, ...updatedAccount }
+        : account
+    ));
+    
+    setEditingAccount(null);
+    toast({
+      title: "Account updated",
+      description: "Your account has been successfully updated.",
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 space-y-6">
@@ -184,7 +223,11 @@ const Dashboard = () => {
           <h2 className="text-xl font-semibold text-foreground">Your Accounts</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {accounts.map((account) => (
-              <AccountCard key={account.id} account={account} />
+              <AccountCard 
+                key={account.id} 
+                account={account} 
+                onEditAccount={setEditingAccount}
+              />
             ))}
           </div>
         </div>
@@ -192,7 +235,10 @@ const Dashboard = () => {
         {/* Charts and Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SpendingChart transactions={transactions} />
-          <TransactionList transactions={transactions.slice(0, 5)} />
+          <TransactionList 
+            transactions={transactions.slice(0, 5)} 
+            onDeleteTransaction={handleDeleteTransaction}
+          />
         </div>
 
         {/* Add Transaction Modal */}
@@ -201,6 +247,15 @@ const Dashboard = () => {
             accounts={accounts}
             onAddTransaction={handleAddTransaction}
             onClose={() => setShowAddTransaction(false)}
+          />
+        )}
+
+        {/* Edit Account Modal */}
+        {editingAccount && (
+          <EditAccount
+            account={editingAccount}
+            onUpdateAccount={handleUpdateAccount}
+            onClose={() => setEditingAccount(null)}
           />
         )}
       </div>

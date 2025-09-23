@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Transaction } from "./Dashboard";
 import { CategoryBadge } from "./CategoryBadge";
-import { ArrowUpIcon, ArrowDownIcon } from "lucide-react";
+import { ArrowUpIcon, ArrowDownIcon, TrashIcon } from "lucide-react";
 
 interface TransactionListProps {
   transactions: Transaction[];
+  onDeleteTransaction: (transactionId: string) => void;
 }
 
-export const TransactionList = ({ transactions }: TransactionListProps) => {
+export const TransactionList = ({ transactions, onDeleteTransaction }: TransactionListProps) => {
   return (
     <Card className="bg-gradient-card shadow-card-shadow">
       <CardHeader>
@@ -48,12 +50,22 @@ export const TransactionList = ({ transactions }: TransactionListProps) => {
                 </div>
               </div>
               
-              <div className={`text-lg font-bold ${
-                transaction.type === "income" ? "text-success" : "text-destructive"
-              }`}>
-                {transaction.type === "income" ? "+" : "-"}₹{transaction.amount.toLocaleString('en-IN', { 
-                  minimumFractionDigits: 2 
-                })}
+              <div className="flex items-center space-x-3">
+                <div className={`text-lg font-bold ${
+                  transaction.type === "income" ? "text-success" : "text-destructive"
+                }`}>
+                  {transaction.type === "income" ? "+" : "-"}₹{transaction.amount.toLocaleString('en-IN', { 
+                    minimumFractionDigits: 2 
+                  })}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onDeleteTransaction(transaction.id)}
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                >
+                  <TrashIcon className="w-4 h-4" />
+                </Button>
               </div>
             </div>
           ))
