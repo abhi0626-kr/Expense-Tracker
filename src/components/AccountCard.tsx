@@ -24,7 +24,7 @@ export const AccountCard = ({ account }: AccountCardProps) => {
         <div className="space-y-2">
           <h3 className="font-semibold text-foreground">{account.name}</h3>
           <p className={`text-2xl font-bold ${isNegative ? 'text-destructive' : 'text-success'}`}>
-            {isNegative ? '-' : ''}${Math.abs(account.balance).toLocaleString('en-US', { 
+            {isNegative ? '-' : ''}₹{Math.abs(account.balance).toLocaleString('en-IN', { 
               minimumFractionDigits: 2 
             })}
           </p>

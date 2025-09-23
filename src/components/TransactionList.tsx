@@ -51,7 +51,7 @@ export const TransactionList = ({ transactions }: TransactionListProps) => {
               <div className={`text-lg font-bold ${
                 transaction.type === "income" ? "text-success" : "text-destructive"
               }`}>
-                {transaction.type === "income" ? "+" : "-"}${transaction.amount.toLocaleString('en-US', { 
+                {transaction.type === "income" ? "+" : "-"}₹{transaction.amount.toLocaleString('en-IN', { 
                   minimumFractionDigits: 2 
                 })}
               </div>

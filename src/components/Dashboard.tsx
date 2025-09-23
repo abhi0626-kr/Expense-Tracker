@@ -145,7 +145,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-foreground">
-                ${totalBalance.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                ₹{totalBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -159,7 +159,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                +${monthlyIncome.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                +₹{monthlyIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -173,7 +173,7 @@ const Dashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">
-                -${monthlyExpenses.toLocaleString('en-US', { minimumFractionDigits: 2 })}
+                -₹{monthlyExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
