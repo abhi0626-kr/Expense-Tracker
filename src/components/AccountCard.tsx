@@ -1,6 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Account } from "./Dashboard";
+import { Account } from "@/hooks/useExpenseData";
 import { CreditCardIcon, EditIcon } from "lucide-react";
 
 interface AccountCardProps {

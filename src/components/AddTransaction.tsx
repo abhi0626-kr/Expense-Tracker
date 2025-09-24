@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Account, Transaction } from "./Dashboard";
+import { Account, Transaction } from "@/hooks/useExpenseData";
 import { XIcon } from "lucide-react";
 
 interface AddTransactionProps {
@@ -52,7 +52,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     }
 
     onAddTransaction({
-      accountId: formData.accountId,
+      account_id: formData.accountId,
       type: formData.type,
       amount: parseFloat(formData.amount),
       category: formData.category,

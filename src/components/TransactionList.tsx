@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Transaction } from "./Dashboard";
+import { Transaction } from "@/hooks/useExpenseData";
 import { CategoryBadge } from "./CategoryBadge";
 import { ArrowUpIcon, ArrowDownIcon, TrashIcon } from "lucide-react";
 

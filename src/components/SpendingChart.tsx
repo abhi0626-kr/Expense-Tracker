@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
-import { Transaction } from "./Dashboard";
+import { Transaction } from "@/hooks/useExpenseData";
 
 interface SpendingChartProps {
   transactions: Transaction[];

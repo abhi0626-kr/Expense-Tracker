@@ -1,89 +1,27 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon } from "lucide-react";
+import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
 import { EditAccount } from "./EditAccount";
 import { SpendingChart } from "./SpendingChart";
-import { useToast } from "@/hooks/use-toast";
-
-export interface Account {
-  id: string;
-  name: string;
-  type: string;
-  balance: number;
-  color: string;
-}
-
-export interface Transaction {
-  id: string;
-  accountId: string;
-  type: "income" | "expense";
-  amount: number;
-  category: string;
-  description: string;
-  date: string;
-}
+import { useAuth } from "@/hooks/useAuth";
+import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
 
 const Dashboard = () => {
-  const { toast } = useToast();
+  const { signOut } = useAuth();
+  const { 
+    accounts, 
+    transactions, 
+    loading, 
+    addTransaction, 
+    deleteTransaction, 
+    updateAccount 
+  } = useExpenseData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
-  const [accounts, setAccounts] = useState<Account[]>([
-    {
-      id: "1",
-      name: "Main Checking",
-      type: "Checking",
-      balance: 2750.50,
-      color: "from-blue-500 to-blue-600"
-    },
-    {
-      id: "2", 
-      name: "Savings Account",
-      type: "Savings",
-      balance: 8420.00,
-      color: "from-green-500 to-green-600"
-    },
-    {
-      id: "3",
-      name: "Credit Card",
-      type: "Credit",
-      balance: -1205.75,
-      color: "from-purple-500 to-purple-600"
-    }
-  ]);
-
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: "1",
-      accountId: "1",
-      type: "expense",
-      amount: 85.50,
-      category: "Food & Dining", 
-      description: "Grocery shopping",
-      date: "2024-01-15"
-    },
-    {
-      id: "2", 
-      accountId: "1",
-      type: "income",
-      amount: 3200.00,
-      category: "Salary",
-      description: "Monthly salary",
-      date: "2024-01-01"
-    },
-    {
-      id: "3",
-      accountId: "2",
-      type: "expense", 
-      amount: 45.00,
-      category: "Transportation",
-      description: "Gas station",
-      date: "2024-01-14"
-    }
-  ]);
 
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
   const monthlyIncome = transactions
@@ -93,67 +31,31 @@ const Dashboard = () => {
     .filter(t => t.type === "expense" && new Date(t.date).getMonth() === new Date().getMonth()) 
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const handleAddTransaction = (transaction: Omit<Transaction, "id">) => {
-    const newTransaction: Transaction = {
-      ...transaction,
-      id: Date.now().toString()
-    };
-    setTransactions(prev => [newTransaction, ...prev]);
-    
-    // Update account balance
-    setAccounts(prev => prev.map(account => {
-      if (account.id === transaction.accountId) {
-        const balanceChange = transaction.type === "income" 
-          ? transaction.amount 
-          : -transaction.amount;
-        return { ...account, balance: account.balance + balanceChange };
-      }
-      return account;
-    }));
-
+  const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
+    await addTransaction(transaction);
     setShowAddTransaction(false);
-    toast({
-      title: "Transaction added",
-      description: "Your transaction has been successfully recorded.",
-    });
   };
 
-  const handleDeleteTransaction = (transactionId: string) => {
-    const transaction = transactions.find(t => t.id === transactionId);
-    if (!transaction) return;
-
-    setTransactions(prev => prev.filter(t => t.id !== transactionId));
-    
-    // Revert account balance
-    setAccounts(prev => prev.map(account => {
-      if (account.id === transaction.accountId) {
-        const balanceChange = transaction.type === "income" 
-          ? -transaction.amount 
-          : transaction.amount;
-        return { ...account, balance: account.balance + balanceChange };
-      }
-      return account;
-    }));
-
-    toast({
-      title: "Transaction deleted",
-      description: "Your transaction has been successfully removed.",
-    });
+  const handleDeleteTransaction = async (transactionId: string) => {
+    await deleteTransaction(transactionId);
   };
 
-  const handleUpdateAccount = (accountId: string, updatedAccount: Omit<Account, "id">) => {
-    setAccounts(prev => prev.map(account => 
-      account.id === accountId 
-        ? { ...account, ...updatedAccount }
-        : account
-    ));
-    
+  const handleUpdateAccount = async (accountId: string, updatedAccount: Omit<Account, "id" | "balance">) => {
+    await updateAccount(accountId, updatedAccount);
     setEditingAccount(null);
-    toast({
-      title: "Account updated",
-      description: "Your account has been successfully updated.",
-    });
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-foreground">Loading your financial data...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -164,13 +66,23 @@ const Dashboard = () => {
             <h1 className="text-2xl font-bold text-foreground">Financial Dashboard</h1>
             <p className="text-muted-foreground">Track your accounts and spending</p>
           </div>
-          <Button 
-            onClick={() => setShowAddTransaction(true)}
-            className="bg-gradient-primary text-white shadow-financial"
-          >
-            <PlusIcon className="w-4 h-4 mr-2" />
-            Add Transaction
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              onClick={() => setShowAddTransaction(true)}
+              className="bg-gradient-primary text-white shadow-financial"
+            >
+              <PlusIcon className="w-4 h-4 mr-2" />
+              Add Transaction
+            </Button>
+            <Button 
+              onClick={handleSignOut}
+              variant="outline"
+              className="text-muted-foreground hover:text-foreground"
+            >
+              <LogOutIcon className="w-4 h-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {/* Overview Cards */}
