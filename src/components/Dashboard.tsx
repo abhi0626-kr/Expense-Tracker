@@ -24,11 +24,11 @@ const Dashboard = () => {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
-  const monthlyIncome = transactions
-    .filter(t => t.type === "income" && new Date(t.date).getMonth() === new Date().getMonth())
+  const totalIncome = transactions
+    .filter(t => t.type === "income")
     .reduce((sum, t) => sum + t.amount, 0);
-  const monthlyExpenses = transactions
-    .filter(t => t.type === "expense" && new Date(t.date).getMonth() === new Date().getMonth()) 
+  const totalExpenses = transactions
+    .filter(t => t.type === "expense") 
     .reduce((sum, t) => sum + t.amount, 0);
 
   const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
@@ -69,7 +69,7 @@ const Dashboard = () => {
           <div className="flex gap-2">
             <Button 
               onClick={() => setShowAddTransaction(true)}
-              className="bg-gradient-primary text-white shadow-financial"
+              className="bg-success hover:bg-success/90 text-success-foreground shadow-financial"
             >
               <PlusIcon className="w-4 h-4 mr-2" />
               Add Transaction
@@ -77,7 +77,7 @@ const Dashboard = () => {
             <Button 
               onClick={handleSignOut}
               variant="outline"
-              className="text-muted-foreground hover:text-foreground"
+              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
             >
               <LogOutIcon className="w-4 h-4 mr-2" />
               Sign Out
@@ -104,13 +104,13 @@ const Dashboard = () => {
           <Card className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Monthly Income
+                Total Income
               </CardTitle>
               <TrendingUpIcon className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-success">
-                +₹{monthlyIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                +₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -118,13 +118,13 @@ const Dashboard = () => {
           <Card className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
-                Monthly Expenses
+                Total Expenses
               </CardTitle>
               <TrendingDownIcon className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
               <div className="text-2xl font-bold text-destructive">
-                -₹{monthlyExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                -₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
           </Card>
@@ -148,7 +148,7 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <SpendingChart transactions={transactions} />
           <TransactionList 
-            transactions={transactions.slice(0, 5)} 
+            transactions={transactions} 
             onDeleteTransaction={handleDeleteTransaction}
           />
         </div>

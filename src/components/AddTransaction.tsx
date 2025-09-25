@@ -176,12 +176,17 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button type="button" variant="outline" onClick={onClose} className="flex-1">
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onClose} 
+                className="flex-1 border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
                 Cancel
               </Button>
               <Button 
                 type="submit" 
-                className="flex-1 bg-gradient-primary text-white shadow-financial"
+                className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-financial"
                 disabled={!formData.accountId || !formData.type || !formData.amount || !formData.category || !formData.description}
               >
                 Add Transaction

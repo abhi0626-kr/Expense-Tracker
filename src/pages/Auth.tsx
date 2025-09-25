@@ -159,7 +159,7 @@ const Auth = () => {
                 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary text-white shadow-financial"
+                  className="w-full bg-success hover:bg-success/90 text-success-foreground shadow-financial"
                   disabled={loading}
                 >
                   {loading ? "Signing in..." : "Sign In"}
@@ -209,7 +209,7 @@ const Auth = () => {
                 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary text-white shadow-financial"
+                  className="w-full bg-success hover:bg-success/90 text-success-foreground shadow-financial"
                   disabled={loading}
                 >
                   {loading ? "Creating account..." : "Sign Up"}
