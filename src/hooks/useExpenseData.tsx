@@ -14,7 +14,7 @@ export interface Account {
 export interface Transaction {
   id: string;
   account_id: string;
-  type: "income" | "expense";
+  type: "income" | "expense" | "transfer";
   amount: number;
   category: string;
   description: string;
@@ -73,7 +73,7 @@ export const useExpenseData = () => {
       setTransactions(data.map(transaction => ({
         id: transaction.id,
         account_id: transaction.account_id,
-        type: transaction.type as "income" | "expense",
+        type: transaction.type as "income" | "expense" | "transfer",
         amount: transaction.amount ? parseFloat(transaction.amount.toString()) : 0,
         category: transaction.category,
         description: transaction.description,
@@ -289,6 +289,90 @@ export const useExpenseData = () => {
     }
   }, [user, accounts.length, loading]);
 
+  // Transfer funds between accounts
+  const transferFunds = async (
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    description: string
+  ) => {
+    if (!user) return;
+
+    try {
+      // Get both accounts
+      const fromAccount = accounts.find(a => a.id === fromAccountId);
+      const toAccount = accounts.find(a => a.id === toAccountId);
+
+      if (!fromAccount || !toAccount) {
+        throw new Error("Invalid accounts");
+      }
+
+      if (fromAccount.balance < amount) {
+        throw new Error("Insufficient funds in source account");
+      }
+
+      // Update from account (deduct)
+      const { error: fromError } = await supabase
+        .from("accounts")
+        .update({ balance: fromAccount.balance - amount })
+        .eq("id", fromAccountId);
+
+      if (fromError) throw fromError;
+
+      // Update to account (add)
+      const { error: toError } = await supabase
+        .from("accounts")
+        .update({ balance: toAccount.balance + amount })
+        .eq("id", toAccountId);
+
+      if (toError) throw toError;
+
+      // Create transfer out transaction
+      const { error: transOutError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          account_id: fromAccountId,
+          type: "transfer",
+          amount: -amount,
+          category: "Transfer Out",
+          description: description || `Transfer to ${toAccount.name}`,
+          date: new Date().toISOString().split('T')[0]
+        });
+
+      if (transOutError) throw transOutError;
+
+      // Create transfer in transaction
+      const { error: transInError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          account_id: toAccountId,
+          type: "transfer",
+          amount: amount,
+          category: "Transfer In",
+          description: description || `Transfer from ${fromAccount.name}`,
+          date: new Date().toISOString().split('T')[0]
+        });
+
+      if (transInError) throw transInError;
+
+      await fetchAccounts();
+      await fetchTransactions();
+
+      toast({
+        title: "Transfer successful",
+        description: `₹${amount.toFixed(2)} transferred from ${fromAccount.name} to ${toAccount.name}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Transfer failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     accounts,
     transactions,
@@ -296,6 +380,7 @@ export const useExpenseData = () => {
     addTransaction,
     deleteTransaction,
     updateAccount,
+    transferFunds,
     refetch: () => {
       fetchAccounts();
       fetchTransactions();
