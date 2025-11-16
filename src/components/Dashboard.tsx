@@ -1,12 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon } from "lucide-react";
+import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
 import { EditAccount } from "./EditAccount";
 import { SpendingChart } from "./SpendingChart";
+import { TransferFunds } from "./TransferFunds";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
 
@@ -18,9 +19,11 @@ const Dashboard = () => {
     loading, 
     addTransaction, 
     deleteTransaction, 
-    updateAccount 
+    updateAccount,
+    transferFunds
   } = useExpenseData();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
+  const [showTransferFunds, setShowTransferFunds] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
 
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
@@ -43,6 +46,15 @@ const Dashboard = () => {
   const handleUpdateAccount = async (accountId: string, updatedAccount: Omit<Account, "id" | "balance">) => {
     await updateAccount(accountId, updatedAccount);
     setEditingAccount(null);
+  };
+
+  const handleTransferFunds = async (
+    fromAccountId: string,
+    toAccountId: string,
+    amount: number,
+    description: string
+  ) => {
+    await transferFunds(fromAccountId, toAccountId, amount, description);
   };
 
   const handleSignOut = async () => {
@@ -73,6 +85,14 @@ const Dashboard = () => {
             >
               <PlusIcon className="w-4 h-4 mr-2" />
               Add Transaction
+            </Button>
+            <Button 
+              onClick={() => setShowTransferFunds(true)}
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Transfer
             </Button>
             <Button 
               onClick={handleSignOut}
@@ -170,6 +190,14 @@ const Dashboard = () => {
             onClose={() => setEditingAccount(null)}
           />
         )}
+
+        {/* Transfer Funds Modal */}
+        <TransferFunds
+          open={showTransferFunds}
+          onOpenChange={setShowTransferFunds}
+          accounts={accounts}
+          onTransfer={handleTransferFunds}
+        />
       </div>
     </div>
   );
