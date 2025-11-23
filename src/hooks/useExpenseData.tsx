@@ -142,7 +142,7 @@ export const useExpenseData = () => {
     if (!user) return;
 
     try {
-      const { error } = await supabase
+      const { data: newTransaction, error } = await supabase
         .from("transactions")
         .insert({
           user_id: user.id,
@@ -152,7 +152,9 @@ export const useExpenseData = () => {
           category: transaction.category,
           description: transaction.description,
           date: transaction.date
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
 
@@ -171,6 +173,15 @@ export const useExpenseData = () => {
           .eq("id", transaction.account_id);
 
         if (updateError) throw updateError;
+      }
+
+      // Sync to Google Sheets in the background
+      if (newTransaction) {
+        supabase.functions.invoke("sync-to-sheets", {
+          body: { transaction: newTransaction }
+        }).catch(error => {
+          console.error("Failed to sync to Google Sheets:", error);
+        });
       }
 
       await fetchTransactions();
@@ -328,7 +339,7 @@ export const useExpenseData = () => {
       if (toError) throw toError;
 
       // Create transfer out transaction
-      const { error: transOutError } = await supabase
+      const { data: transOut, error: transOutError } = await supabase
         .from("transactions")
         .insert({
           user_id: user.id,
@@ -338,12 +349,14 @@ export const useExpenseData = () => {
           category: "Transfer Out",
           description: description || `Transfer to ${toAccount.name}`,
           date: new Date().toISOString().split('T')[0]
-        });
+        })
+        .select()
+        .single();
 
       if (transOutError) throw transOutError;
 
       // Create transfer in transaction
-      const { error: transInError } = await supabase
+      const { data: transIn, error: transInError } = await supabase
         .from("transactions")
         .insert({
           user_id: user.id,
@@ -353,9 +366,23 @@ export const useExpenseData = () => {
           category: "Transfer In",
           description: description || `Transfer from ${fromAccount.name}`,
           date: new Date().toISOString().split('T')[0]
-        });
+        })
+        .select()
+        .single();
 
       if (transInError) throw transInError;
+
+      // Sync both transactions to Google Sheets
+      if (transOut) {
+        supabase.functions.invoke("sync-to-sheets", {
+          body: { transaction: transOut }
+        }).catch(error => console.error("Failed to sync transfer out:", error));
+      }
+      if (transIn) {
+        supabase.functions.invoke("sync-to-sheets", {
+          body: { transaction: transIn }
+        }).catch(error => console.error("Failed to sync transfer in:", error));
+      }
 
       await fetchAccounts();
       await fetchTransactions();
