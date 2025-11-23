@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { WalletIcon } from "lucide-react";
+import { OTPVerification } from "@/components/OTPVerification";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -15,6 +16,8 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [signInData, setSignInData] = useState({ email: "", password: "" });
   const [signUpData, setSignUpData] = useState({ email: "", password: "", confirmPassword: "" });
+  const [showOTPVerification, setShowOTPVerification] = useState(false);
+  const [pendingUser, setPendingUser] = useState<{ id: string; email: string } | null>(null);
 
   useEffect(() => {
     // Check if user is already authenticated
@@ -77,7 +80,7 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: signUpData.email,
         password: signUpData.password,
         options: {
@@ -94,10 +97,17 @@ const Auth = () => {
         return;
       }
 
-      toast({
-        title: "Success",
-        description: "Account created! Please check your email to verify your account.",
-      });
+      if (data.user) {
+        // Send OTP
+        await sendOTP(data.user.id, signUpData.email);
+        setPendingUser({ id: data.user.id, email: signUpData.email });
+        setShowOTPVerification(true);
+        
+        toast({
+          title: "Account created!",
+          description: "Please check your email for the verification code.",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",
@@ -108,6 +118,47 @@ const Auth = () => {
       setLoading(false);
     }
   };
+
+  const sendOTP = async (userId: string, email: string) => {
+    try {
+      const { error } = await supabase.functions.invoke("send-otp", {
+        body: { userId, email },
+      });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Error sending OTP:", error);
+      throw error;
+    }
+  };
+
+  const handleOTPVerified = () => {
+    toast({
+      title: "Email verified!",
+      description: "You can now sign in to your account.",
+    });
+    setShowOTPVerification(false);
+    setPendingUser(null);
+  };
+
+  const handleResendOTP = async () => {
+    if (pendingUser) {
+      await sendOTP(pendingUser.id, pendingUser.email);
+    }
+  };
+
+  if (showOTPVerification && pendingUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <OTPVerification
+          userId={pendingUser.id}
+          email={pendingUser.email}
+          onVerified={handleOTPVerified}
+          onResend={handleResendOTP}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
