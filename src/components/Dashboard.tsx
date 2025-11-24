@@ -73,40 +73,44 @@ const Dashboard = () => {
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-6 space-y-6">
         {/* Header */}
-        <div className="flex justify-between items-center">
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Financial Dashboard</h1>
-            <p className="text-muted-foreground">Track your accounts and spending</p>
+            <h1 className="text-xl md:text-2xl font-bold text-foreground">Financial Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Track your accounts and spending</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button 
               onClick={() => setShowAddTransaction(true)}
-              className="bg-success hover:bg-success/90 text-success-foreground shadow-financial"
+              className="bg-success hover:bg-success/90 text-success-foreground shadow-financial flex-1 sm:flex-none"
+              size="sm"
             >
-              <PlusIcon className="w-4 h-4 mr-2" />
-              Add Transaction
+              <PlusIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Add Transaction</span>
+              <span className="sm:hidden">Add</span>
             </Button>
             <Button 
               onClick={() => setShowTransferFunds(true)}
               variant="outline"
-              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex-1 sm:flex-none"
+              size="sm"
             >
-              <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Transfer
+              <ArrowRightLeft className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Transfer</span>
             </Button>
             <Button 
               onClick={handleSignOut}
               variant="outline"
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+              size="sm"
             >
-              <LogOutIcon className="w-4 h-4 mr-2" />
-              Sign Out
+              <LogOutIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign Out</span>
             </Button>
           </div>
         </div>
 
         {/* Overview Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
           <Card className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -115,7 +119,7 @@ const Dashboard = () => {
               <WalletIcon className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
+              <div className="text-xl md:text-2xl font-bold text-foreground">
                 ₹{totalBalance.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
@@ -129,7 +133,7 @@ const Dashboard = () => {
               <TrendingUpIcon className="h-4 w-4 text-success" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-success">
+              <div className="text-xl md:text-2xl font-bold text-success">
                 +₹{totalIncome.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
@@ -143,7 +147,7 @@ const Dashboard = () => {
               <TrendingDownIcon className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">
+              <div className="text-xl md:text-2xl font-bold text-destructive">
                 -₹{totalExpenses.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
               </div>
             </CardContent>
@@ -151,9 +155,9 @@ const Dashboard = () => {
         </div>
 
         {/* Accounts Section */}
-        <div className="space-y-4">
-          <h2 className="text-xl font-semibold text-foreground">Your Accounts</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="space-y-3 md:space-y-4">
+          <h2 className="text-lg md:text-xl font-semibold text-foreground">Your Accounts</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {accounts.map((account) => (
               <AccountCard 
                 key={account.id} 
@@ -165,7 +169,7 @@ const Dashboard = () => {
         </div>
 
         {/* Charts and Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <SpendingChart transactions={transactions} />
           <TransactionList 
             transactions={transactions} 
