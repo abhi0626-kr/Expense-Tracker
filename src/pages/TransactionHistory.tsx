@@ -4,13 +4,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeftIcon, ArrowUpIcon, ArrowDownIcon, TrashIcon, SearchIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpIcon, ArrowDownIcon, TrashIcon, SearchIcon, DownloadIcon, FileTextIcon, FileSpreadsheetIcon } from "lucide-react";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { exportToCSV, exportToPDF } from "@/utils/exportUtils";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const TransactionHistory = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const { transactions, deleteTransaction, loading } = useExpenseData();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
@@ -26,6 +35,44 @@ const TransactionHistory = () => {
       return matchesSearch && matchesType && matchesCategory;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleExportCSV = () => {
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no transactions to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const filename = `transactions_${new Date().toISOString().split('T')[0]}.csv`;
+    exportToCSV(filteredTransactions, filename);
+    
+    toast({
+      title: "Export successful",
+      description: `${filteredTransactions.length} transactions exported to CSV.`,
+    });
+  };
+
+  const handleExportPDF = () => {
+    if (filteredTransactions.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no transactions to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const filename = `transactions_${new Date().toISOString().split('T')[0]}.pdf`;
+    exportToPDF(filteredTransactions, filename);
+    
+    toast({
+      title: "Export successful",
+      description: `${filteredTransactions.length} transactions exported to PDF.`,
+    });
+  };
 
   if (loading) {
     return (
@@ -55,6 +102,30 @@ const TransactionHistory = () => {
                 <p className="text-sm text-muted-foreground">View all your transactions</p>
               </div>
             </div>
+            
+            {/* Export Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  disabled={filteredTransactions.length === 0}
+                >
+                  <DownloadIcon className="w-4 h-4 mr-2" />
+                  Export
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleExportCSV}>
+                  <FileSpreadsheetIcon className="w-4 h-4 mr-2" />
+                  Export as CSV
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleExportPDF}>
+                  <FileTextIcon className="w-4 h-4 mr-2" />
+                  Export as PDF
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {/* Filters */}
