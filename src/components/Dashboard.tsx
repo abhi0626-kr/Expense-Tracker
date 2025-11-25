@@ -1,7 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft } from "lucide-react";
+import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
@@ -12,6 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const { signOut } = useAuth();
   const { 
     accounts, 
@@ -96,6 +98,15 @@ const Dashboard = () => {
             >
               <ArrowRightLeft className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Transfer</span>
+            </Button>
+            <Button 
+              onClick={() => navigate("/profile")}
+              variant="outline"
+              className="border-border hover:bg-accent"
+              size="sm"
+            >
+              <UserIcon className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Profile</span>
             </Button>
             <Button 
               onClick={handleSignOut}
