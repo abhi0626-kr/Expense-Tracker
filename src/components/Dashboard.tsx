@@ -10,6 +10,8 @@ import { EditAccount } from "./EditAccount";
 import { SpendingChart } from "./SpendingChart";
 import { SpendingTrendChart } from "./SpendingTrendChart";
 import { CategoryTrendChart } from "./CategoryTrendChart";
+import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
+import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
@@ -185,6 +187,12 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           <SpendingTrendChart transactions={transactions} />
           <CategoryTrendChart transactions={transactions} />
+        </div>
+
+        {/* Comparison Charts */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+          <WeeklyComparisonChart transactions={transactions} />
+          <MonthlyComparisonChart transactions={transactions} />
         </div>
 
         {/* Charts and Transactions */}
