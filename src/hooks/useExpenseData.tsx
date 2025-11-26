@@ -117,9 +117,10 @@ export const useExpenseData = () => {
     ];
 
     try {
+      // Use upsert to avoid accidental duplicates if this runs more than once
       const { error } = await supabase
         .from("accounts")
-        .insert(defaultAccounts);
+        .upsert(defaultAccounts, { onConflict: "user_id,name" });
 
       if (error) throw error;
 
@@ -249,7 +250,7 @@ export const useExpenseData = () => {
   };
 
   // Update account
-  const updateAccount = async (accountId: string, updatedAccount: Omit<Account, "id" | "balance">) => {
+  const updateAccount = async (accountId: string, updatedAccount: Omit<Account, "id">) => {
     if (!user) return;
 
     try {
@@ -258,12 +259,21 @@ export const useExpenseData = () => {
         .update({
           name: updatedAccount.name,
           type: updatedAccount.type,
-          color: updatedAccount.color
+          color: updatedAccount.color,
+          balance: updatedAccount.balance
         })
         .eq("id", accountId);
 
       if (error) throw error;
 
+      // Optimistically update local state for immediate UI refresh
+      setAccounts(prev => prev.map(a =>
+        a.id === accountId
+          ? { ...a, ...updatedAccount }
+          : a
+      ));
+
+      // Also refetch from server to stay in sync
       await fetchAccounts();
       
       toast({

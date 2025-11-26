@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,15 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     });
   };
 
+  // Show each account name only once to avoid duplicates in the dropdown
+  const uniqueAccounts = useMemo(() => {
+    const byName = new Map<string, Account>();
+    for (const a of accounts) {
+      if (!byName.has(a.name)) byName.set(a.name, a);
+    }
+    return Array.from(byName.values());
+  }, [accounts]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md bg-card shadow-financial">
@@ -99,7 +108,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                   <SelectValue placeholder="Select an account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((account) => (
+                  {uniqueAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name}
                     </SelectItem>

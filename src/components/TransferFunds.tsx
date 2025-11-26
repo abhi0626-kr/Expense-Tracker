@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -32,6 +32,15 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Deduplicate by name to avoid repeated entries if duplicates exist in DB
+  const uniqueAccounts = useMemo(() => {
+    const byName = new Map<string, Account>();
+    for (const a of accounts) {
+      if (!byName.has(a.name)) byName.set(a.name, a);
+    }
+    return Array.from(byName.values());
+  }, [accounts]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,7 +92,7 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
                   <SelectValue placeholder="Select source account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts.map((account) => (
+                  {uniqueAccounts.map((account) => (
                     <SelectItem key={account.id} value={account.id}>
                       {account.name} (₹{account.balance.toLocaleString('en-IN')})
                     </SelectItem>
@@ -99,7 +108,7 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
                   <SelectValue placeholder="Select destination account" />
                 </SelectTrigger>
                 <SelectContent>
-                  {accounts
+                  {uniqueAccounts
                     .filter((account) => account.id !== fromAccountId)
                     .map((account) => (
                       <SelectItem key={account.id} value={account.id}>
