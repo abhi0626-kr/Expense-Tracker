@@ -76,7 +76,7 @@ const Dashboard = () => {
     await deleteTransaction(transactionId);
   };
 
-  const handleUpdateAccount = async (accountId: string, updatedAccount: Omit<Account, "id" | "balance">) => {
+  const handleUpdateAccount = async (accountId: string, updatedAccount: Omit<Account, "id">) => {
     await updateAccount(accountId, updatedAccount);
     setEditingAccount(null);
   };
