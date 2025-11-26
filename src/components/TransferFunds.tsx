@@ -37,7 +37,8 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
   const uniqueAccounts = useMemo(() => {
     const byName = new Map<string, Account>();
     for (const a of accounts) {
-      if (!byName.has(a.name)) byName.set(a.name, a);
+      const key = (a.name || "").trim().toLowerCase();
+      if (!byName.has(key)) byName.set(key, a);
     }
     return Array.from(byName.values());
   }, [accounts]);
