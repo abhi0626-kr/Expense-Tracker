@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
@@ -15,10 +16,11 @@ import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const { signOut } = useAuth();
+  const { signOut, user } = useAuth();
   const { 
     accounts, 
     transactions, 
@@ -31,6 +33,31 @@ const Dashboard = () => {
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showTransferFunds, setShowTransferFunds] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [profileImage, setProfileImage] = useState<string>("");
+  const [userName, setUserName] = useState<string>("");
+
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  const fetchProfile = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("profile_image_url, full_name")
+        .eq("user_id", user?.id)
+        .maybeSingle();
+
+      if (data) {
+        setProfileImage(data.profile_image_url || "");
+        setUserName(data.full_name || "");
+      }
+    } catch (error) {
+      console.error("Error fetching profile:", error);
+    }
+  };
 
   const totalBalance = accounts.reduce((sum, account) => sum + account.balance, 0);
   const totalIncome = transactions
@@ -106,11 +133,16 @@ const Dashboard = () => {
             <Button 
               onClick={() => navigate("/profile")}
               variant="outline"
-              className="border-border hover:bg-accent"
+              className="border-border hover:bg-accent flex items-center gap-2"
               size="sm"
             >
-              <UserIcon className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Profile</span>
+              <Avatar className="w-6 h-6">
+                <AvatarImage src={profileImage} alt={userName || "User"} />
+                <AvatarFallback className="text-xs">
+                  <UserIcon className="w-3 h-3" />
+                </AvatarFallback>
+              </Avatar>
+              <span className="hidden sm:inline">{userName || "Profile"}</span>
             </Button>
             <Button 
               onClick={handleSignOut}
