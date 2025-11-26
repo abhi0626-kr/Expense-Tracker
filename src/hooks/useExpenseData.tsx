@@ -203,18 +203,37 @@ export const useExpenseData = () => {
 
   // Delete transaction
   const deleteTransaction = async (transactionId: string) => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to delete transactions.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const transaction = transactions.find(t => t.id === transactionId);
-    if (!transaction) return;
+    if (!transaction) {
+      toast({
+        title: "Transaction not found",
+        description: "The transaction you're trying to delete doesn't exist.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
-      const { error } = await supabase
+      // First, delete the transaction
+      const { error: deleteError } = await supabase
         .from("transactions")
         .delete()
-        .eq("id", transactionId);
+        .eq("id", transactionId)
+        .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (deleteError) {
+        console.error("Delete error:", deleteError);
+        throw deleteError;
+      }
 
       // Revert account balance
       const account = accounts.find(a => a.id === transaction.account_id);
@@ -228,22 +247,27 @@ export const useExpenseData = () => {
         const { error: updateError } = await supabase
           .from("accounts")
           .update({ balance: newBalance })
-          .eq("id", transaction.account_id);
+          .eq("id", transaction.account_id)
+          .eq("user_id", user.id);
 
-        if (updateError) throw updateError;
+        if (updateError) {
+          console.error("Balance update error:", updateError);
+          throw updateError;
+        }
       }
 
-      await fetchTransactions();
-      await fetchAccounts();
+      // Refetch data
+      await Promise.all([fetchTransactions(), fetchAccounts()]);
       
       toast({
         title: "Transaction deleted",
         description: "Your transaction has been successfully removed.",
       });
     } catch (error: any) {
+      console.error("Error deleting transaction:", error);
       toast({
         title: "Error deleting transaction",
-        description: error.message,
+        description: error.message || "Failed to delete transaction. Please try again.",
         variant: "destructive",
       });
     }
@@ -251,7 +275,33 @@ export const useExpenseData = () => {
 
   // Update account
   const updateAccount = async (accountId: string, updatedAccount: Omit<Account, "id">) => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to update accounts.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation
+    if (!updatedAccount.name || !updatedAccount.type) {
+      toast({
+        title: "Validation error",
+        description: "Account name and type are required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isNaN(updatedAccount.balance) || updatedAccount.balance < 0) {
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid balance amount.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     try {
       const { error } = await supabase
@@ -262,9 +312,13 @@ export const useExpenseData = () => {
           color: updatedAccount.color,
           balance: updatedAccount.balance
         })
-        .eq("id", accountId);
+        .eq("id", accountId)
+        .eq("user_id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Update error:", error);
+        throw error;
+      }
 
       // Optimistically update local state for immediate UI refresh
       setAccounts(prev => prev.map(a =>
@@ -281,11 +335,14 @@ export const useExpenseData = () => {
         description: "Your account has been successfully updated.",
       });
     } catch (error: any) {
+      console.error("Error updating account:", error);
       toast({
         title: "Error updating account",
-        description: error.message,
+        description: error.message || "Failed to update account. Please try again.",
         variant: "destructive",
       });
+      // Refetch to reset state if update failed
+      await fetchAccounts();
     }
   };
 
