@@ -28,10 +28,15 @@ const Auth = () => {
         const hashParams = new URLSearchParams(location.hash.substring(1));
         const type = hashParams.get('type');
         
-        if (type === 'signup' && !session.user.user_metadata?.password_set) {
+        if (type === 'signup') {
+          // New user clicked magic link - show password creation
           setIsSettingPassword(true);
           setEmail(session.user.email || "");
+        } else if (type === 'magiclink' || type === 'recovery') {
+          // Existing user or password reset - allow them in
+          navigate("/");
         } else {
+          // Regular session
           navigate("/");
         }
       }
@@ -44,11 +49,15 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      // Check if user already exists
       const { error } = await supabase.auth.signUp({
         email: email,
-        password: Math.random().toString(36), // Temporary password
+        password: Math.random().toString(36).substring(2, 15), // Temporary random password
         options: {
           emailRedirectTo: `${window.location.origin}/auth`,
+          data: {
+            email_confirmed: false,
+          }
         },
       });
 
@@ -63,8 +72,8 @@ const Auth = () => {
 
       setEmailSent(true);
       toast({
-        title: "Verification email sent!",
-        description: "Check your email and click the link to complete sign up.",
+        title: "Magic link sent!",
+        description: "Check your email and click the link to set your password.",
       });
     } catch (error) {
       toast({
@@ -110,12 +119,22 @@ const Auth = () => {
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password.length < 6) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 6 characters long",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
+      // Update password for the authenticated user
       const { error } = await supabase.auth.updateUser({
         password: password,
-        data: { password_set: true }
       });
 
       if (error) {
@@ -127,12 +146,17 @@ const Auth = () => {
         return;
       }
 
+      // Sign out the user so they can sign in with their new password
+      await supabase.auth.signOut();
+
       toast({
-        title: "Password set successfully!",
-        description: "You can now sign in with your password.",
+        title: "Password created successfully!",
+        description: "Please sign in with your email and new password.",
       });
       
-      navigate("/");
+      // Reset state to show sign-in form
+      setIsSettingPassword(false);
+      setPassword("");
     } catch (error) {
       toast({
         title: "Error",
@@ -153,10 +177,10 @@ const Auth = () => {
               <WalletIcon className="h-12 w-12 text-primary" />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">
-              Set Your Password
+              Create Your Password
             </CardTitle>
             <p className="text-muted-foreground">
-              Create a password to complete your sign up
+              Welcome! Set a password to secure your account
             </p>
           </CardHeader>
           
@@ -177,21 +201,28 @@ const Auth = () => {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="Create a password"
+                  placeholder="Create a password (min 6 characters)"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   minLength={6}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Choose a strong password with at least 6 characters
+                </p>
               </div>
               
               <Button 
                 type="submit" 
                 className="w-full bg-success hover:bg-success/90 text-success-foreground shadow-financial"
-                disabled={loading}
+                disabled={loading || password.length < 6}
               >
-                {loading ? "Setting password..." : "Set Password & Continue"}
+                {loading ? "Creating password..." : "Create Password"}
               </Button>
+              
+              <p className="text-xs text-center text-muted-foreground">
+                After creating your password, you'll be redirected to sign in
+              </p>
             </form>
           </CardContent>
         </Card>
@@ -213,14 +244,19 @@ const Auth = () => {
               Check your email
             </CardTitle>
             <p className="text-muted-foreground">
-              We've sent a verification link to <strong>{email}</strong>
+              We've sent a magic link to <strong>{email}</strong>
             </p>
           </CardHeader>
           
           <CardContent className="space-y-4">
             <div className="space-y-2 text-sm text-muted-foreground">
-              <p>Click the link in the email to verify your account and set your password.</p>
-              <p>The link will expire in 1 hour.</p>
+              <p><strong>Next steps:</strong></p>
+              <ol className="list-decimal list-inside space-y-1 ml-2">
+                <li>Click the magic link in your email</li>
+                <li>Create your password</li>
+                <li>Sign in with your email and password</li>
+              </ol>
+              <p className="text-xs mt-2">The link will expire in 1 hour.</p>
             </div>
             
             <Button
@@ -311,8 +347,14 @@ const Auth = () => {
                   />
                 </div>
                 
-                <div className="text-sm text-muted-foreground">
-                  We'll send you a verification link. Click it to set your password and complete sign up.
+                <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md border border-muted">
+                  <p className="font-medium text-foreground mb-1">How it works:</p>
+                  <ul className="text-xs space-y-1 list-disc list-inside">
+                    <li>Enter your email address</li>
+                    <li>We'll send you a magic link</li>
+                    <li>Click the link to create your password</li>
+                    <li>Sign in and start tracking expenses!</li>
+                  </ul>
                 </div>
                 
                 <Button 
