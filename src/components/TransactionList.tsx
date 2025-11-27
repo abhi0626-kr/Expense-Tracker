@@ -80,7 +80,7 @@ export const TransactionList = ({ transactions, onDeleteTransaction }: Transacti
                   variant="ghost"
                   size="sm"
                   onClick={() => onDeleteTransaction(transaction.id)}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 hidden sm:flex"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex"
                 >
                   <TrashIcon className="w-4 h-4" />
                 </Button>
