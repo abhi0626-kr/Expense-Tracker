@@ -59,40 +59,33 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: email,
-        password: password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
+      // Send OTP without creating user yet
+      const { data, error } = await supabase.functions.invoke("send-otp", {
+        body: { email },
       });
 
       if (error) {
-        if (error.message.includes("already registered")) {
-          toast({
-            title: "Account exists",
-            description: "This email is already registered. Please sign in instead.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Sign up failed",
-            description: error.message,
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Sign up failed",
+          description: error.message || "Could not send verification code",
+          variant: "destructive",
+        });
         return;
       }
 
-      if (data.user) {
-        await sendOTP(email, data.user.id);
-        setPendingUserId(data.user.id);
-        setShowOTPVerification(true);
+      if (data?.userId) {
+        setPendingUserId(data.userId);
       }
-    } catch (error) {
+
+      setShowOTPVerification(true);
+      toast({
+        title: "Verification code sent!",
+        description: "Check your email for the 6-digit code.",
+      });
+    } catch (error: any) {
       toast({
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -163,14 +156,55 @@ const Auth = () => {
     }
   };
 
-  const handleOTPVerified = () => {
-    toast({
-      title: "Email verified!",
-      description: "Your account is now active. You can sign in.",
-    });
-    setShowOTPVerification(false);
-    setEmail("");
-    setPassword("");
+  const handleOTPVerified = async () => {
+    // After OTP verification, prompt user to create password and complete signup
+    const newPassword = prompt("Create a password for your account (min 6 characters):");
+    
+    if (!newPassword || newPassword.length < 6) {
+      toast({
+        title: "Password required",
+        description: "Please create a password with at least 6 characters.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password: newPassword,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Account creation failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Account created!",
+        description: "You can now sign in with your email and password.",
+      });
+      
+      setShowOTPVerification(false);
+      setEmail("");
+      setPassword("");
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleResendOTP = async () => {
@@ -469,30 +503,14 @@ const Auth = () => {
                   />
                 </div>
                 
-                <div className="space-y-2">
-                  <Label htmlFor="signup-password">Password</Label>
-                  <Input
-                    id="signup-password"
-                    type="password"
-                    placeholder="Create a password (min 6 characters)"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                    minLength={6}
-                  />
-                </div>
-                
                 <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md border border-muted">
                   <p className="font-medium text-foreground mb-1">How it works:</p>
                   <ul className="text-xs space-y-1 list-disc list-inside">
-                    <li>Enter your email and create a password</li>
-                    <li>We'll send you an OTP code via email</li>
-                    <li>Verify your email with the code</li>
+                    <li>Enter your email address</li>
+                    <li>We'll send you a 6-digit verification code</li>
+                    <li>Enter the code to verify and create your password</li>
                     <li>Start tracking your expenses!</li>
                   </ul>
-                  <p className="text-xs mt-2 text-warning">
-                    ⚠️ Limited to 5 verification attempts per day
-                  </p>
                 </div>
                 
                 <Button 
