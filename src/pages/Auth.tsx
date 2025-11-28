@@ -19,6 +19,8 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [showOTPVerification, setShowOTPVerification] = useState(false);
   const [pendingUserId, setPendingUserId] = useState<string>("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
+  const [resetEmailSent, setResetEmailSent] = useState(false);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -177,6 +179,40 @@ const Auth = () => {
     }
   };
 
+  const handlePasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?reset=true`,
+      });
+
+      if (error) {
+        toast({
+          title: "Reset failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setResetEmailSent(true);
+      toast({
+        title: "Reset email sent!",
+        description: "Check your email for the password reset link.",
+      });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send reset email. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   if (showOTPVerification) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center p-4">
@@ -186,6 +222,111 @@ const Auth = () => {
           onVerified={handleOTPVerified}
           onResend={handleResendOTP}
         />
+      </div>
+    );
+  }
+
+  if (showPasswordReset) {
+    if (resetEmailSent) {
+      return (
+        <div className="min-h-screen bg-background flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-card shadow-financial">
+            <CardHeader className="text-center space-y-4">
+              <div className="flex justify-center">
+                <div className="rounded-full bg-success/10 p-3">
+                  <WalletIcon className="h-8 w-8 text-success" />
+                </div>
+              </div>
+              <CardTitle className="text-2xl font-bold text-foreground">
+                Check your email
+              </CardTitle>
+              <p className="text-muted-foreground">
+                We've sent a password reset link to <strong>{email}</strong>
+              </p>
+            </CardHeader>
+            
+            <CardContent className="space-y-4">
+              <div className="space-y-2 text-sm text-muted-foreground">
+                <p><strong>Next steps:</strong></p>
+                <ol className="list-decimal list-inside space-y-1 ml-2">
+                  <li>Click the link in your email</li>
+                  <li>Create your new password</li>
+                  <li>Sign in with your new credentials</li>
+                </ol>
+              </div>
+              
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setShowPasswordReset(false);
+                  setResetEmailSent(false);
+                  setEmail("");
+                }}
+              >
+                Back to Sign In
+              </Button>
+            </CardContent>
+          </Card>
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md bg-card shadow-financial">
+          <CardHeader className="text-center space-y-2">
+            <div className="flex justify-center mb-4">
+              <WalletIcon className="h-12 w-12 text-primary" />
+            </div>
+            <CardTitle className="text-2xl font-bold text-foreground">
+              Reset Password
+            </CardTitle>
+            <p className="text-muted-foreground">
+              Enter your email to receive a password reset link
+            </p>
+          </CardHeader>
+          
+          <CardContent>
+            <form onSubmit={handlePasswordReset} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="reset-email">Email</Label>
+                <Input
+                  id="reset-email"
+                  type="email"
+                  placeholder="Enter your email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+              </div>
+              
+              <Button 
+                type="submit" 
+                className="w-full bg-success hover:bg-success/90 text-success-foreground shadow-financial"
+                disabled={loading}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Sending...
+                  </>
+                ) : (
+                  "Send Reset Link"
+                )}
+              </Button>
+              
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => setShowPasswordReset(false)}
+              >
+                Back to Sign In
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     );
   }
@@ -276,6 +417,15 @@ const Auth = () => {
                   ) : (
                     "Sign In"
                   )}
+                </Button>
+                
+                <Button
+                  type="button"
+                  variant="link"
+                  className="w-full text-sm text-muted-foreground hover:text-foreground"
+                  onClick={() => setShowPasswordReset(true)}
+                >
+                  Forgot password?
                 </Button>
               </form>
             </TabsContent>
