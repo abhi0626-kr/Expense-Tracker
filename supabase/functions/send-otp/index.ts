@@ -11,7 +11,7 @@ const corsHeaders = {
 
 interface SendOTPRequest {
   email: string;
-  userId: string;
+  userId?: string;
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -21,6 +21,12 @@ const handler = async (req: Request): Promise<Response> => {
 
   try {
     const { email, userId }: SendOTPRequest = await req.json();
+    if (!email) {
+      return new Response(
+        JSON.stringify({ error: "Missing email" }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
 
     // Save OTP to database
     const supabase = createClient(
@@ -60,7 +66,7 @@ const handler = async (req: Request): Promise<Response> => {
     const { error: dbError } = await supabase
       .from("email_verifications")
       .insert({
-        user_id: userId,
+        user_id: userId ?? null,
         email: email,
         otp_code: otpCode,
         expires_at: expiresAt,

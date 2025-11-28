@@ -7,7 +7,8 @@ const corsHeaders = {
 };
 
 interface VerifyOTPRequest {
-  userId: string;
+  userId?: string;
+  email?: string;
   otpCode: string;
 }
 
@@ -17,7 +18,10 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { userId, otpCode }: VerifyOTPRequest = await req.json();
+    const { userId, email, otpCode }: VerifyOTPRequest = await req.json();
+    if (!otpCode || (!userId && !email)) {
+      return new Response(JSON.stringify({ error: "Missing required fields" }), { status: 400, headers: corsHeaders });
+    }
 
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
@@ -26,12 +30,16 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Find the OTP record
     const { data: otpRecord, error: fetchError } = await supabase
+    const query = supabase
       .from("email_verifications")
-      .select("*")
-      .eq("user_id", userId)
+      .select("id, expires_at, verified")
       .eq("otp_code", otpCode)
-      .eq("verified", false)
-      .single();
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    const { data, error } = userId
+      ? await query.eq("user_id", userId)
+      : await query.eq("email", email ?? "");
 
     if (fetchError || !otpRecord) {
       return new Response(

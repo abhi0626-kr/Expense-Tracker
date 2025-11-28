@@ -35,7 +35,7 @@ export const OTPVerification = ({ userId, email, onVerified, onResend }: OTPVeri
 
     try {
       const { data, error } = await supabase.functions.invoke("verify-otp", {
-        body: { userId, otpCode },
+        body: { userId, email, otpCode },
       });
 
       if (error) throw error;
