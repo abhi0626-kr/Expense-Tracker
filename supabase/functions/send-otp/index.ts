@@ -22,17 +22,40 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, userId }: SendOTPRequest = await req.json();
 
-    // Generate 6-digit OTP
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
-    
-    // Calculate expiry time (10 minutes from now)
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
-
     // Save OTP to database
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
+
+    // Check rate limit: max 5 OTPs per day per user
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { data: recentOtps, error: countError } = await supabase
+      .from("email_verifications")
+      .select("id")
+      .eq("user_id", userId)
+      .gte("created_at", oneDayAgo);
+
+    if (countError) {
+      console.error("Count error:", countError);
+      throw new Error("Failed to check rate limit");
+    }
+
+    if (recentOtps && recentOtps.length >= 5) {
+      return new Response(
+        JSON.stringify({ error: "Maximum OTP requests (5) reached for today. Please try again tomorrow." }),
+        {
+          status: 429,
+          headers: { "Content-Type": "application/json", ...corsHeaders },
+        }
+      );
+    }
+
+    // Generate 6-digit OTP
+    const otpCode = Math.floor(100000 + Math.random() * 900000).toString();
+    
+    // Calculate expiry time (10 minutes from now)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     const { error: dbError } = await supabase
       .from("email_verifications")
