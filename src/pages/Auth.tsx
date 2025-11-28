@@ -65,11 +65,22 @@ const Auth = () => {
       });
 
       if (error) {
-        toast({
-          title: "Sign up failed",
-          description: error.message || "Could not send verification code",
-          variant: "destructive",
-        });
+        // Check if user already exists
+        const errorMessage = error.message || "Could not send verification code";
+        if (errorMessage.toLowerCase().includes("already registered") || 
+            errorMessage.toLowerCase().includes("already exists")) {
+          toast({
+            title: "Email already registered",
+            description: "This email is already registered. Please sign in instead.",
+            variant: "destructive",
+          });
+        } else {
+          toast({
+            title: "Sign up failed",
+            description: errorMessage,
+            variant: "destructive",
+          });
+        }
         return;
       }
 
