@@ -1,73 +1,92 @@
-# Welcome to your Lovable project
+# Expense Tracker (React + TypeScript + Supabase)
 
-## Project info
+A modern expense tracker built with React 18, Vite, TypeScript, Tailwind (shadcn/ui), and Supabase for auth and data. Includes charts, accounts, transactions, exports, and Google OAuth. 
 
-**URL**: https://lovable.dev/projects/61e677a7-13f9-4b4b-9e11-d537d2d96f66
+## Tech Stack
+- React 18 + Vite 5 (TypeScript)
+- Tailwind CSS + shadcn/ui components
+- Supabase (Auth, Postgres, Row Level Security)
+- Recharts for visualizations
 
-## How can I edit this code?
+## Features
+- Email/Password auth + Google OAuth
+- Optional email confirmation (via SMTP) or CAPTCHA-only signup
+- Secure session handling with Supabase JS v2
+- Accounts, transactions, summaries and charts
+- Automatic default accounts for new users
 
-There are several ways of editing your application.
+## Getting Started
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/61e677a7-13f9-4b4b-9e11-d537d2d96f66) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+### 1) Install dependencies
+```powershell
+npm install
 ```
 
-**Edit a file directly in GitHub**
+### 2) Environment variables
+Create `.env` in the project root (already present) and set:
+```dotenv
+VITE_SUPABASE_PROJECT_ID="<your-project-id>"
+VITE_SUPABASE_PUBLISHABLE_KEY="<your-anon-key>"
+VITE_SUPABASE_URL="https://<your-project-id>.supabase.co"
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+# Only if CAPTCHA is enabled in Supabase (Attack Protection)
+VITE_HCAPTCHA_SITE_KEY="<your-hcaptcha-site-key>"
+```
 
-**Use GitHub Codespaces**
+### 3) Run the app
+```powershell
+npm run dev
+```
+The app starts on the Vite dev server.
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+## Supabase Configuration
 
-## What technologies are used for this project?
+### Auth Providers
+- Email/Password: Settings → Auth → Providers → Email
+  - If you want email confirmation: enable "Confirm email" and configure SMTP
+  - If you do NOT want email confirmation: disable "Confirm email"
+- Google OAuth: Settings → Auth → Providers → Google (set client id/secret)
 
-This project is built with:
+### SMTP (optional but recommended for confirmations)
+Settings → Project Settings → Authentication → SMTP Settings:
+- Host: e.g. `smtp.gmail.com` (Port `587`)
+- Username: your sender email
+- Password: app password/API key from your provider
+- Sender email/name: what recipients see
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+### CAPTCHA (hCaptcha)
+Settings → Auth → Attack Protection:
+- Enable Captcha protection = ON
+- Provider = hCaptcha
+- Paste your hCaptcha Secret in Supabase, and set `VITE_HCAPTCHA_SITE_KEY` in `.env`
+- If you prefer not to use CAPTCHA, turn it OFF
 
-## How can I deploy this project?
+## Development Notes
+- Default accounts are created on first login in `src/hooks/useExpenseData.tsx`.
+  We avoid ON CONFLICT errors by checking for existing accounts before insert.
+- For Supabase Edge Functions (if you use them): VS Code may warn about Deno imports.
+  The repo contains `supabase/functions/deno.json` and `.vscode/settings.json` to enable Deno language features.
 
-Simply open [Lovable](https://lovable.dev/projects/61e677a7-13f9-4b4b-9e11-d537d2d96f66) and click on Share -> Publish.
+## Common Issues & Fixes
+- CAPTCHA error `sitekey-secret-mismatch`:
+  - Ensure `.env` `VITE_HCAPTCHA_SITE_KEY` matches the "Site Key" in hCaptcha dashboard
+  - Ensure Supabase Attack Protection has the matching "Secret" from hCaptcha
+- Email not received:
+  - Check spam; verify SMTP is configured; or disable "Confirm email"
+- Error creating default accounts (ON CONFLICT):
+  - Fixed: we now check for existing accounts and only insert once
 
-## Can I connect a custom domain to my Lovable project?
+## Scripts
+```json
+{
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint ."
+  }
+}
+```
 
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+## License
+This project is for learning/demo purposes. Add your preferred license if you intend to distribute.

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,7 +9,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { WalletIcon, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { OTPVerification } from "@/components/OTPVerification";
+import HCaptcha from "@hcaptcha/react-hcaptcha";
+
+// Get your hCaptcha site key from Supabase Dashboard > Settings > Auth > Bot and Abuse Prevention
+const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || "YOUR_HCAPTCHA_SITE_KEY";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,10 +20,11 @@ const Auth = () => {
   const [loading, setLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showOTPVerification, setShowOTPVerification] = useState(false);
-  const [pendingUserId, setPendingUserId] = useState<string>("");
   const [showPasswordReset, setShowPasswordReset] = useState(false);
   const [resetEmailSent, setResetEmailSent] = useState(false);
+  const [isSignIn, setIsSignIn] = useState(true);
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const captchaRef = useRef<HCaptcha>(null);
 
   useEffect(() => {
     const checkUser = async () => {
@@ -32,73 +36,59 @@ const Auth = () => {
     checkUser();
   }, [navigate]);
 
-  const sendOTP = async (email: string, userId: string) => {
-    try {
-      const { error } = await supabase.functions.invoke("send-otp", {
-        body: { email, userId },
-      });
-
-      if (error) throw error;
-
-      toast({
-        title: "OTP sent!",
-        description: "Check your email for the verification code.",
-      });
-    } catch (error: any) {
-      toast({
-        title: "Failed to send OTP",
-        description: error.message || "Please try again",
-        variant: "destructive",
-      });
-      throw error;
-    }
-  };
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!captchaToken) {
+      toast({
+        title: "Verification required",
+        description: "Please complete the CAPTCHA verification.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Send OTP without creating user yet
-      const { data, error } = await supabase.functions.invoke("send-otp", {
-        body: { email },
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          captchaToken,
+        },
       });
 
       if (error) {
-        // Check if user already exists
-        const errorMessage = error.message || "Could not send verification code";
-        if (errorMessage.toLowerCase().includes("already registered") || 
-            errorMessage.toLowerCase().includes("already exists")) {
-          toast({
-            title: "Email already registered",
-            description: "This email is already registered. Please sign in instead.",
-            variant: "destructive",
-          });
-        } else {
-          toast({
-            title: "Sign up failed",
-            description: errorMessage,
-            variant: "destructive",
-          });
-        }
+        toast({
+          title: "Sign up failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        // Reset captcha on error
+        setCaptchaToken(null);
+        captchaRef.current?.resetCaptcha();
         return;
       }
 
-      if (data?.userId) {
-        setPendingUserId(data.userId);
-      }
-
-      setShowOTPVerification(true);
       toast({
-        title: "Verification code sent!",
-        description: "Check your email for the 6-digit code.",
+        title: "Check your email!",
+        description: "We've sent you a confirmation link. Click it to verify your account.",
       });
+      
+      // Switch to sign in view
+      setIsSignIn(true);
+      setCaptchaToken(null);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
+      // Reset captcha on error
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
     } finally {
       setLoading(false);
     }
@@ -167,63 +157,6 @@ const Auth = () => {
     }
   };
 
-  const handleOTPVerified = async () => {
-    // After OTP verification, prompt user to create password and complete signup
-    const newPassword = prompt("Create a password for your account (min 6 characters):");
-    
-    if (!newPassword || newPassword.length < 6) {
-      toast({
-        title: "Password required",
-        description: "Please create a password with at least 6 characters.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password: newPassword,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-        },
-      });
-
-      if (error) {
-        toast({
-          title: "Account creation failed",
-          description: error.message,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      toast({
-        title: "Account created!",
-        description: "You can now sign in with your email and password.",
-      });
-      
-      setShowOTPVerification(false);
-      setEmail("");
-      setPassword("");
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create account",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResendOTP = async () => {
-    if (pendingUserId && email) {
-      await sendOTP(email, pendingUserId);
-    }
-  };
-
   const handlePasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -258,18 +191,7 @@ const Auth = () => {
     }
   };
 
-  if (showOTPVerification) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center p-4">
-        <OTPVerification
-          userId={pendingUserId}
-          email={email}
-          onVerified={handleOTPVerified}
-          onResend={handleResendOTP}
-        />
-      </div>
-    );
-  }
+
 
   if (showPasswordReset) {
     if (resetEmailSent) {
@@ -392,7 +314,7 @@ const Auth = () => {
         </CardHeader>
         
         <CardContent>
-          <Tabs defaultValue="signin" className="w-full">
+          <Tabs value={isSignIn ? "signin" : "signup"} onValueChange={(v) => setIsSignIn(v === "signin")} className="w-full">
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="signin">Sign In</TabsTrigger>
               <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -514,20 +436,38 @@ const Auth = () => {
                   />
                 </div>
                 
+                <div className="space-y-2">
+                  <Label htmlFor="signup-password">Password</Label>
+                  <Input
+                    id="signup-password"
+                    type="password"
+                    placeholder="Create a password (min 6 characters)"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={6}
+                  />
+                </div>
+                
                 <div className="text-sm text-muted-foreground bg-muted/30 p-3 rounded-md border border-muted">
-                  <p className="font-medium text-foreground mb-1">How it works:</p>
-                  <ul className="text-xs space-y-1 list-disc list-inside">
-                    <li>Enter your email address</li>
-                    <li>We'll send you a 6-digit verification code</li>
-                    <li>Enter the code to verify and create your password</li>
-                    <li>Start tracking your expenses!</li>
-                  </ul>
+                  <p className="font-medium text-foreground mb-1">📧 Email confirmation required</p>
+                  <p className="text-xs">We'll send you a confirmation link to verify your email address.</p>
+                </div>
+                
+                <div className="flex justify-center">
+                  <HCaptcha
+                    ref={captchaRef}
+                    sitekey={HCAPTCHA_SITE_KEY}
+                    onVerify={(token) => setCaptchaToken(token)}
+                    onExpire={() => setCaptchaToken(null)}
+                    onError={() => setCaptchaToken(null)}
+                  />
                 </div>
                 
                 <Button 
                   type="submit" 
                   className="w-full bg-success hover:bg-success/90 text-success-foreground shadow-financial"
-                  disabled={loading}
+                  disabled={loading || !captchaToken}
                 >
                   {loading ? (
                     <>

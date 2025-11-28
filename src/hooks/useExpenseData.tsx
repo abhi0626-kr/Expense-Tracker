@@ -117,10 +117,22 @@ export const useExpenseData = () => {
     ];
 
     try {
-      // Use upsert to avoid accidental duplicates if this runs more than once
+      // Check if accounts already exist to avoid duplicates
+      const { data: existingAccounts } = await supabase
+        .from("accounts")
+        .select("id")
+        .eq("user_id", user.id);
+
+      if (existingAccounts && existingAccounts.length > 0) {
+        // Accounts already exist, just fetch them
+        await fetchAccounts();
+        return;
+      }
+
+      // Insert default accounts
       const { error } = await supabase
         .from("accounts")
-        .upsert(defaultAccounts, { onConflict: "user_id,name" });
+        .insert(defaultAccounts);
 
       if (error) throw error;
 
