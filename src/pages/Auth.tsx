@@ -10,6 +10,13 @@ import { useToast } from "@/hooks/use-toast";
 import { WalletIcon, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import HCaptcha from "@hcaptcha/react-hcaptcha";
+import { EmailVerification } from "@/components/EmailVerification";
+import {
+  generateVerificationCode,
+  sendVerificationEmail,
+  storeVerificationCode,
+  verifyCode,
+} from "@/utils/emailVerification";
 
 // Get your hCaptcha site key from Supabase Dashboard > Settings > Auth > Bot and Abuse Prevention
 const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || "YOUR_HCAPTCHA_SITE_KEY";
@@ -26,6 +33,8 @@ const Auth = () => {
   const [isSignIn, setIsSignIn] = useState(true);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const captchaRef = useRef<HCaptcha>(null);
+  const [showEmailVerification, setShowEmailVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
 
   useEffect(() => {
     const checkUser = async () => {
@@ -61,35 +70,32 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/`,
-          captchaToken,
-        },
-      });
+      // Generate and send verification code via EmailJS
+      const code = generateVerificationCode();
+      const { success, error: emailError } = await sendVerificationEmail(email, code);
 
-      if (error) {
+      if (!success) {
         toast({
-          title: "Sign up failed",
-          description: error.message,
+          title: "Failed to send verification email",
+          description: emailError || "Please check your EmailJS configuration.",
           variant: "destructive",
         });
-        // Reset captcha on error
         setCaptchaToken(null);
         captchaRef.current?.resetCaptcha();
         return;
       }
 
+      // Store code for verification
+      storeVerificationCode(email, code);
+      setVerificationCode(code);
+
       toast({
-        title: "Check your email!",
-        description: "We've sent you a confirmation link. Click it to verify your account.",
+        title: "Verification code sent!",
+        description: "Check your email for the 6-digit code.",
       });
-      
-      // Switch to sign in view
-      setIsSignIn(true);
-      setCaptchaToken(null);
+
+      // Show verification screen
+      setShowEmailVerification(true);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -99,6 +105,87 @@ const Auth = () => {
       // Reset captcha on error
       setCaptchaToken(null);
       captchaRef.current?.resetCaptcha();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmailVerified = async () => {
+    setLoading(true);
+    try {
+      // Now create the account in Supabase
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/`,
+          data: {
+            email_verified: true,
+          },
+        },
+      });
+
+      if (error) {
+        toast({
+          title: "Sign up failed",
+          description: error.message,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "Account created successfully!",
+        description: "You can now sign in with your credentials.",
+      });
+
+      // Reset form and switch to sign in
+      setShowEmailVerification(false);
+      setIsSignIn(true);
+      setEmail("");
+      setPassword("");
+      setConfirmPassword("");
+      setCaptchaToken(null);
+      captchaRef.current?.resetCaptcha();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to create account.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    setLoading(true);
+    try {
+      const code = generateVerificationCode();
+      const { success, error } = await sendVerificationEmail(email, code);
+
+      if (!success) {
+        toast({
+          title: "Failed to resend code",
+          description: error || "Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      storeVerificationCode(email, code);
+      setVerificationCode(code);
+
+      toast({
+        title: "Code resent!",
+        description: "Check your email for the new code.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to resend code.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -201,7 +288,34 @@ const Auth = () => {
     }
   };
 
-
+  if (showEmailVerification) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <EmailVerification
+          email={email}
+          onVerified={async (inputCode) => {
+            const result = verifyCode(email, inputCode);
+            if (!result.valid) {
+              toast({
+                title: "Verification failed",
+                description: result.error || "Invalid code.",
+                variant: "destructive",
+              });
+              throw new Error(result.error);
+            }
+            await handleEmailVerified();
+          }}
+          onResend={handleResendCode}
+          onBack={() => {
+            setShowEmailVerification(false);
+            setCaptchaToken(null);
+            captchaRef.current?.resetCaptcha();
+          }}
+          loading={loading}
+        />
+      </div>
+    );
+  }
 
   if (showPasswordReset) {
     if (resetEmailSent) {
