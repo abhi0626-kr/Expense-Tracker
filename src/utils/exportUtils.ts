@@ -2,6 +2,15 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { Transaction } from "@/hooks/useExpenseData";
 
+// Interface for imported transactions
+export interface ImportedTransaction {
+  date: string;
+  description: string;
+  category: string;
+  type: "income" | "expense";
+  amount: number;
+}
+
 export const exportToCSV = (transactions: Transaction[], filename = "transactions.csv") => {
   // Create CSV header
   const headers = ["Date", "Description", "Category", "Type", "Amount (₹)"];
@@ -116,4 +125,122 @@ export const exportToPDF = (transactions: Transaction[], filename = "transaction
   
   // Save PDF
   doc.save(filename);
+};
+
+export const exportToExcel = (transactions: Transaction[], filename = "transactions.xlsx") => {
+  // Create Excel-compatible CSV with BOM for proper encoding
+  const headers = ["Date", "Description", "Category", "Type", "Amount (₹)"];
+  
+  const rows = transactions.map(transaction => [
+    new Date(transaction.date).toLocaleDateString('en-IN'),
+    transaction.description,
+    transaction.category,
+    transaction.type,
+    transaction.amount.toFixed(2)
+  ]);
+  
+  const csvContent = [
+    headers.join("\t"),
+    ...rows.map(row => row.join("\t"))
+  ].join("\n");
+  
+  // Add BOM for Excel UTF-8 compatibility
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csvContent], { type: "application/vnd.ms-excel;charset=utf-8;" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename.replace('.xlsx', '.xls'));
+  link.style.visibility = "hidden";
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+export interface BackupData {
+  version: string;
+  exportDate: string;
+  transactions: Transaction[];
+  accounts?: { id: string; name: string; type: string; balance: number }[];
+}
+
+export const exportBackup = (data: BackupData, filename = "expense-tracker-backup.json") => {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute("href", url);
+  link.setAttribute("download", filename);
+  link.style.visibility = "hidden";
+  
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+};
+
+export const importFromCSV = (file: File): Promise<ImportedTransaction[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const lines = text.split('\n').filter(line => line.trim());
+        
+        if (lines.length < 2) {
+          reject(new Error("CSV file is empty or has no data rows"));
+          return;
+        }
+        
+        // Parse header to detect column mapping
+        const header = lines[0].toLowerCase();
+        const hasHeader = header.includes('date') || header.includes('description') || header.includes('amount');
+        
+        const dataLines = hasHeader ? lines.slice(1) : lines;
+        
+        const transactions: ImportedTransaction[] = dataLines
+          .filter(line => line.trim())
+          .map(line => {
+            // Handle quoted fields with commas
+            const cells: string[] = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (const char of line) {
+              if (char === '"') {
+                inQuotes = !inQuotes;
+              } else if (char === ',' && !inQuotes) {
+                cells.push(current.trim());
+                current = '';
+              } else {
+                current += char;
+              }
+            }
+            cells.push(current.trim());
+            
+            // Try to parse based on common CSV formats
+            // Expected: Date, Description, Category, Type, Amount
+            const [date, description, category, type, amount] = cells;
+            
+            return {
+              date: date || new Date().toISOString().split('T')[0],
+              description: description || 'Imported transaction',
+              category: category || 'Others',
+              type: (type?.toLowerCase() === 'income' ? 'income' : 'expense') as "income" | "expense",
+              amount: Math.abs(parseFloat(amount?.replace(/[^\d.-]/g, '') || '0'))
+            };
+          })
+          .filter(t => t.amount > 0);
+        
+        resolve(transactions);
+      } catch (error) {
+        reject(new Error("Failed to parse CSV file"));
+      }
+    };
+    
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsText(file);
+  });
 };

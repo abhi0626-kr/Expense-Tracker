@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon, Settings2, AlertTriangle } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
@@ -14,8 +15,10 @@ import { CategoryTrendChart } from "./CategoryTrendChart";
 import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
 import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
+import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
+import { useBudgets } from "@/hooks/useBudgets";
 import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
@@ -30,6 +33,7 @@ const Dashboard = () => {
     updateAccount,
     transferFunds
   } = useExpenseData();
+  const { alerts: budgetAlerts } = useBudgets();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showTransferFunds, setShowTransferFunds] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -131,6 +135,20 @@ const Dashboard = () => {
               <span className="hidden sm:inline">Transfer</span>
             </Button>
             <Button 
+              onClick={() => navigate("/features")}
+              variant="outline"
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex-1 sm:flex-none relative"
+              size="sm"
+            >
+              <Settings2 className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Features</span>
+              {budgetAlerts && budgetAlerts.length > 0 && (
+                <span className="absolute -top-1 -right-1 h-4 w-4 bg-destructive text-destructive-foreground text-xs rounded-full flex items-center justify-center">
+                  {budgetAlerts.length}
+                </span>
+              )}
+            </Button>
+            <Button 
               onClick={() => navigate("/profile")}
               variant="outline"
               className="border-border hover:bg-accent flex items-center gap-2"
@@ -144,6 +162,7 @@ const Dashboard = () => {
               </Avatar>
               <span className="hidden sm:inline">{userName || "Profile"}</span>
             </Button>
+            <ThemeToggle />
             <Button 
               onClick={handleSignOut}
               variant="outline"
@@ -155,6 +174,23 @@ const Dashboard = () => {
             </Button>
           </div>
         </div>
+
+        {/* Budget Alerts */}
+        {budgetAlerts && budgetAlerts.length > 0 && (
+          <div className="space-y-2">
+            {budgetAlerts.slice(0, 3).map((alert) => (
+              <Alert key={alert.id} variant={alert.alert_type === "exceeded" ? "destructive" : "default"} className="cursor-pointer" onClick={() => navigate("/features")}>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{alert.message}</AlertDescription>
+              </Alert>
+            ))}
+            {budgetAlerts.length > 3 && (
+              <Button variant="link" className="text-sm" onClick={() => navigate("/features")}>
+                View all {budgetAlerts.length} budget alerts →
+              </Button>
+            )}
+          </div>
+        )}
 
         {/* Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">

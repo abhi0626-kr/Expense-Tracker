@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
@@ -27,6 +27,7 @@ export const useExpenseData = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
+  const defaultAccountsCreated = useRef(false);
 
   // Fetch accounts
   const fetchAccounts = async () => {
@@ -374,7 +375,8 @@ export const useExpenseData = () => {
 
   // Create default accounts if none exist
   useEffect(() => {
-    if (user && accounts.length === 0 && !loading) {
+    if (user && accounts.length === 0 && !loading && !defaultAccountsCreated.current) {
+      defaultAccountsCreated.current = true;
       createDefaultAccounts();
     }
   }, [user, accounts.length, loading]);
@@ -479,6 +481,169 @@ export const useExpenseData = () => {
     }
   };
 
+  // Add new account
+  const addAccount = async (account: Omit<Account, "id">) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from("accounts")
+        .insert({
+          user_id: user.id,
+          name: account.name,
+          type: account.type,
+          balance: account.balance,
+          color: account.color,
+        });
+
+      if (error) throw error;
+
+      await fetchAccounts();
+
+      toast({
+        title: "Account created",
+        description: `${account.name} has been added successfully.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error creating account",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Delete account
+  const deleteAccount = async (accountId: string) => {
+    if (!user) return;
+
+    const account = accounts.find(a => a.id === accountId);
+    if (!account) return;
+
+    // Check if account has transactions
+    const accountTransactions = transactions.filter(t => t.account_id === accountId);
+    if (accountTransactions.length > 0) {
+      toast({
+        title: "Cannot delete account",
+        description: "This account has transactions. Delete or move transactions first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("accounts")
+        .delete()
+        .eq("id", accountId)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await fetchAccounts();
+
+      toast({
+        title: "Account deleted",
+        description: `${account.name} has been removed.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error deleting account",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Remove duplicate accounts (keeps ones with transactions or highest balance)
+  const removeDuplicateAccounts = async () => {
+    if (!user) return;
+
+    try {
+      // Group accounts by name
+      const accountsByName: { [key: string]: Account[] } = {};
+      accounts.forEach((acc) => {
+        const key = acc.name.toLowerCase().trim();
+        if (!accountsByName[key]) {
+          accountsByName[key] = [];
+        }
+        accountsByName[key].push(acc);
+      });
+
+      const accountsToDelete: string[] = [];
+
+      // For each group of duplicates, keep the one with highest balance or transactions
+      for (const name in accountsByName) {
+        const group = accountsByName[name];
+        if (group.length > 1) {
+          // Sort by balance descending, keep the first one
+          group.sort((a, b) => b.balance - a.balance);
+          
+          // Check which accounts have transactions
+          const accountsWithTx: string[] = [];
+          for (const acc of group) {
+            const hasTx = transactions.some((t) => t.account_id === acc.id);
+            if (hasTx) {
+              accountsWithTx.push(acc.id);
+            }
+          }
+
+          // Keep the account with transactions, or the one with highest balance
+          let keepId: string;
+          if (accountsWithTx.length > 0) {
+            // Find the one with highest balance among those with transactions
+            const withTx = group.filter((a) => accountsWithTx.includes(a.id));
+            withTx.sort((a, b) => b.balance - a.balance);
+            keepId = withTx[0].id;
+          } else {
+            keepId = group[0].id; // Highest balance
+          }
+
+          // Mark others for deletion
+          group.forEach((acc) => {
+            if (acc.id !== keepId) {
+              // Only delete if no transactions
+              const hasTx = transactions.some((t) => t.account_id === acc.id);
+              if (!hasTx) {
+                accountsToDelete.push(acc.id);
+              }
+            }
+          });
+        }
+      }
+
+      if (accountsToDelete.length === 0) {
+        toast({
+          title: "No duplicates found",
+          description: "All accounts are unique or have transactions.",
+        });
+        return;
+      }
+
+      // Delete duplicate accounts
+      const { error } = await supabase
+        .from("accounts")
+        .delete()
+        .in("id", accountsToDelete)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      await fetchAccounts();
+
+      toast({
+        title: "Duplicates removed",
+        description: `${accountsToDelete.length} duplicate account(s) have been removed.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error removing duplicates",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return {
     accounts,
     transactions,
@@ -486,6 +651,9 @@ export const useExpenseData = () => {
     addTransaction,
     deleteTransaction,
     updateAccount,
+    addAccount,
+    deleteAccount,
+    removeDuplicateAccounts,
     transferFunds,
     refetch: () => {
       fetchAccounts();
