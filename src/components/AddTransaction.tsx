@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Account, Transaction } from "@/hooks/useExpenseData";
-import { XIcon } from "lucide-react";
+import { XIcon, EditIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -15,6 +16,7 @@ interface AddTransactionProps {
 }
 
 export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTransactionProps) => {
+  const { toast } = useToast();
   const [formData, setFormData] = useState({
     accountId: "",
     type: "" as "income" | "expense" | "",
@@ -23,6 +25,8 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     description: "",
     date: new Date().toISOString().split('T')[0]
   });
+  const [editMode, setEditMode] = useState(true);
+  const [customCategory, setCustomCategory] = useState("");
 
   const categories = {
     expense: [
@@ -48,6 +52,11 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     e.preventDefault();
     
     if (!formData.accountId || !formData.type || !formData.amount || !formData.category || !formData.description) {
+      toast({
+        title: "Missing Fields",
+        description: "Please fill in all required fields",
+        variant: "destructive"
+      });
       return;
     }
 
@@ -55,9 +64,15 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       account_id: formData.accountId,
       type: formData.type,
       amount: parseFloat(formData.amount),
-      category: formData.category,
+      category: formData.category || customCategory,
       description: formData.description,
       date: formData.date
+    });
+
+    toast({
+      title: "Success",
+      description: "Transaction added successfully",
+      variant: "default"
     });
 
     setFormData({
@@ -68,6 +83,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       description: "",
       date: new Date().toISOString().split('T')[0]
     });
+    setCustomCategory("");
   };
 
   // Show each account name only once to avoid duplicates in the dropdown
@@ -149,22 +165,48 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
 
             <div className="space-y-2">
               <Label htmlFor="category">Category</Label>
-              <Select 
-                value={formData.category} 
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
-                disabled={!formData.type}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select category" />
-                </SelectTrigger>
-                <SelectContent>
-                  {formData.type && categories[formData.type].map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <div className="flex gap-2">
+                <Select 
+                  value={formData.category} 
+                  onValueChange={(value) => {
+                    setFormData({ ...formData, category: value });
+                    setCustomCategory("");
+                  }}
+                  disabled={!formData.type}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {formData.type && categories[formData.type].map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setFormData({ ...formData, category: "" });
+                    setCustomCategory("");
+                  }}
+                  title="Add custom category"
+                  className="px-3"
+                >
+                  <EditIcon className="w-4 h-4" />
+                </Button>
+              </div>
+              {!formData.category && (
+                <Input
+                  placeholder="Or enter custom category"
+                  value={customCategory}
+                  onChange={(e) => setCustomCategory(e.target.value)}
+                  className="mt-2"
+                />
+              )}
             </div>
 
             <div className="space-y-2">
@@ -197,7 +239,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
               <Button 
                 type="submit" 
                 className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-financial"
-                disabled={!formData.accountId || !formData.type || !formData.amount || !formData.category || !formData.description}
+                disabled={!formData.accountId || !formData.type || !formData.amount || (!formData.category && !customCategory) || !formData.description}
               >
                 Add Transaction
               </Button>
