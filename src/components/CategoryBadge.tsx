@@ -16,14 +16,19 @@ export const CategoryBadge = ({ category }: CategoryBadgeProps) => {
       "Salary": "bg-emerald-100 text-emerald-800",
       "Business": "bg-teal-100 text-teal-800",
       "Investment": "bg-cyan-100 text-cyan-800",
+      "Transfer In": "bg-slate-100 text-slate-800",
+      "Transfer Out": "bg-slate-100 text-slate-800",
       "Other": "bg-gray-100 text-gray-800"
     };
     
     return colors[category] || colors["Other"];
   };
 
+  const isTransfer = category.toLowerCase().includes("transfer");
+  const sizeClass = isTransfer ? "px-2 py-0.5" : "px-2 py-1";
+
   return (
-    <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${getCategoryColor(category)}`}>
+    <span className={`inline-flex items-center ${sizeClass} rounded-full text-xs font-medium ${getCategoryColor(category)}`}>
       {category}
     </span>
   );

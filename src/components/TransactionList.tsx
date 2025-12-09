@@ -41,50 +41,70 @@ export const TransactionList = ({ transactions, onDeleteTransaction }: Transacti
               key={transaction.id} 
               className="flex items-center justify-between p-3 rounded-lg bg-muted/50 hover:bg-muted transition-colors gap-3"
             >
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className={`p-2 rounded-full flex-shrink-0 ${
-                  transaction.type === "income" 
-                    ? "bg-success/20 text-success" 
-                    : "bg-destructive/20 text-destructive"
-                }`}>
-                  {transaction.type === "income" ? (
-                    <ArrowUpIcon className="w-4 h-4" />
-                  ) : (
-                    <ArrowDownIcon className="w-4 h-4" />
-                  )}
-                </div>
-                
-                <div className="space-y-1 min-w-0 flex-1">
-                  <p className="font-medium text-foreground truncate">{transaction.description}</p>
-                  <div className="flex flex-wrap items-center gap-2">
-                    <CategoryBadge category={transaction.category} />
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      {new Date(transaction.date).toLocaleDateString('en-IN', {
-                        day: 'numeric',
-                        month: 'short'
-                      })}
-                    </span>
+              {(() => {
+                const isTransfer = transaction.category.toLowerCase().includes("transfer");
+                const transferIsOut = isTransfer ? transaction.amount < 0 : false;
+                const amountSign = isTransfer
+                  ? (transferIsOut ? "-" : "+")
+                  : (transaction.type === "income" ? "+" : "-");
+                const amountValue = isTransfer ? Math.abs(transaction.amount) : transaction.amount;
+                const amountClass = isTransfer
+                  ? (transferIsOut ? "text-destructive" : "text-success")
+                  : (transaction.type === "income" ? "text-success" : "text-destructive");
+
+                return (
+                  <div className="flex items-center justify-between w-full">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className={`p-2 rounded-full flex-shrink-0 ${
+                        amountSign === "+" 
+                          ? "bg-success/20 text-success" 
+                          : "bg-destructive/20 text-destructive"
+                      }`}>
+                        {amountSign === "+" ? (
+                          <ArrowUpIcon className="w-4 h-4" />
+                        ) : (
+                          <ArrowDownIcon className="w-4 h-4" />
+                        )}
+                      </div>
+                      
+                      <div className="space-y-1 min-w-0 flex-1">
+                        <p className="font-medium text-foreground truncate">
+                          {transaction.description.replace(/\s*\([^)]*\)\s*$/, "")}
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <CategoryBadge
+                            category={isTransfer
+                              ? (transferIsOut ? "Transfer Out" : "Transfer In")
+                              : transaction.category}
+                          />
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(transaction.date).toLocaleDateString('en-IN', {
+                              day: 'numeric',
+                              month: 'short'
+                            })}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className={`text-sm md:text-lg font-bold whitespace-nowrap ${amountClass}`}>
+                        {amountSign}₹{Math.abs(amountValue).toLocaleString('en-IN', { 
+                          minimumFractionDigits: 2 
+                        })}
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => onDeleteTransaction(transaction.id)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex"
+                      >
+                        <TrashIcon className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <div className={`text-sm md:text-lg font-bold whitespace-nowrap ${
-                  transaction.type === "income" ? "text-success" : "text-destructive"
-                }`}>
-                  {transaction.type === "income" ? "+" : "-"}₹{transaction.amount.toLocaleString('en-IN', { 
-                    minimumFractionDigits: 2 
-                  })}
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onDeleteTransaction(transaction.id)}
-                  className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex"
-                >
-                  <TrashIcon className="w-4 h-4" />
-                </Button>
-              </div>
+                );
+              })()}
             </div>
           ))
         )}
