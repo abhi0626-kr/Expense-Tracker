@@ -15,6 +15,7 @@ import { CategoryTrendChart } from "./CategoryTrendChart";
 import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
 import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
+import { ReceiptScanner } from "./ReceiptScanner";
 import { ThemeToggle } from "./ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
@@ -250,6 +251,9 @@ const Dashboard = () => {
             ))}
           </div>
         </div>
+
+        {/* Receipt Scanner */}
+        <ReceiptScanner />
 
         {/* Trend Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">

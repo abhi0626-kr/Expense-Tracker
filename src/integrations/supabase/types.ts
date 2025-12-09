@@ -77,6 +77,48 @@ export type Database = {
         }
         Relationships: []
       }
+      investments: {
+        Row: {
+          amount: number
+          created_at: string
+          current_value: number
+          id: string
+          investment_type: string
+          name: string
+          notes: string | null
+          platform: string
+          purchase_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          current_value?: number
+          id?: string
+          investment_type: string
+          name: string
+          notes?: string | null
+          platform: string
+          purchase_date: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          current_value?: number
+          id?: string
+          investment_type?: string
+          name?: string
+          notes?: string | null
+          platform?: string
+          purchase_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           address: string | null
@@ -115,6 +157,65 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      receipts: {
+        Row: {
+          amount: number | null
+          category: string | null
+          confidence_score: number | null
+          created_at: string
+          id: string
+          image_url: string
+          items: Json | null
+          merchant_name: string | null
+          raw_text: string | null
+          status: string
+          transaction_date: string | null
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount?: number | null
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          image_url: string
+          items?: Json | null
+          merchant_name?: string | null
+          raw_text?: string | null
+          status?: string
+          transaction_date?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number | null
+          category?: string | null
+          confidence_score?: number | null
+          created_at?: string
+          id?: string
+          image_url?: string
+          items?: Json | null
+          merchant_name?: string | null
+          raw_text?: string | null
+          status?: string
+          transaction_date?: string | null
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "receipts_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       transactions: {
         Row: {
