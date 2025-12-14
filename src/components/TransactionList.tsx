@@ -1,9 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Transaction } from "@/hooks/useExpenseData";
 import { CategoryBadge } from "./CategoryBadge";
 import { ArrowUpIcon, ArrowDownIcon, TrashIcon, ArrowRightIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useState } from "react";
 
 interface TransactionListProps {
   transactions: Transaction[];
@@ -12,6 +24,7 @@ interface TransactionListProps {
 
 export const TransactionList = ({ transactions, onDeleteTransaction }: TransactionListProps) => {
   const navigate = useNavigate();
+  const [selectedTransactionId, setSelectedTransactionId] = useState<string | null>(null);
   const recentTransactions = transactions.slice(0, 5);
 
   return (
@@ -93,14 +106,46 @@ export const TransactionList = ({ transactions, onDeleteTransaction }: Transacti
                           minimumFractionDigits: 2 
                         })}
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onDeleteTransaction(transaction.id)}
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex"
-                      >
-                        <TrashIcon className="w-4 h-4" />
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedTransactionId(transaction.id)}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0 flex"
+                          >
+                            <TrashIcon className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Transaction?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete this transaction?
+                              <div className="mt-2 pt-2 border-t border-border/50">
+                                <p className="text-sm font-medium text-foreground">
+                                  {transaction.description}
+                                </p>
+                                <p className={`text-sm font-bold mt-1 ${amountClass}`}>
+                                  {amountSign}₹{Math.abs(amountValue).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+                                </p>
+                              </div>
+                              <p className="mt-2 text-xs text-muted-foreground">
+                                This action cannot be undone.
+                              </p>
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              className="bg-destructive hover:bg-destructive/90"
+                              onClick={() => onDeleteTransaction(transaction.id)}
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
                   </div>
                 );

@@ -51,7 +51,10 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData.accountId || !formData.type || !formData.amount || !formData.category || !formData.description) {
+    // Check if category or custom category is filled
+    const categoryFilled = formData.category || customCategory.trim();
+    
+    if (!formData.accountId || !formData.type || !formData.amount || !categoryFilled || !formData.description) {
       toast({
         title: "Missing Fields",
         description: "Please fill in all required fields",
@@ -64,7 +67,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       account_id: formData.accountId,
       type: formData.type,
       amount: parseFloat(formData.amount),
-      category: formData.category || customCategory,
+      category: formData.category || customCategory.trim(),
       description: formData.description,
       date: formData.date
     });
