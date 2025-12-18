@@ -1,5 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
 import { Transaction } from "@/hooks/useExpenseData";
 
 interface SpendingChartProps {
@@ -7,6 +7,23 @@ interface SpendingChartProps {
 }
 
 export const SpendingChart = ({ transactions }: SpendingChartProps) => {
+  // Group income by category
+  const incomeByCategory = transactions
+    .filter(t => t.type === "income")
+    .reduce((acc, transaction) => {
+      const category = transaction.category;
+      if (!acc[category]) {
+        acc[category] = 0;
+      }
+      acc[category] += transaction.amount;
+      return acc;
+    }, {} as Record<string, number>);
+
+  const incomeData = Object.entries(incomeByCategory).map(([category, amount]) => ({
+    name: category,
+    value: amount,
+  }));
+
   // Group expenses by category
   const expensesByCategory = transactions
     .filter(t => t.type === "expense")
@@ -19,55 +36,127 @@ export const SpendingChart = ({ transactions }: SpendingChartProps) => {
       return acc;
     }, {} as Record<string, number>);
 
-  const data = Object.entries(expensesByCategory).map(([category, amount]) => ({
+  const expenseData = Object.entries(expensesByCategory).map(([category, amount]) => ({
     name: category,
-    value: amount
+    value: amount,
   }));
 
-  const COLORS = [
-    '#3B82F6', // blue
-    '#10B981', // green
+  const EXPENSE_COLORS = [
+    '#ff3333ff', // red
+    '#ff730eff', // orange
     '#F59E0B', // yellow
-    '#EF4444', // red
-    '#8B5CF6', // purple
-    '#F97316', // orange
+    '#dfdb00ff', // darker red
+    '#ea0c7bff', // darker orange
+    '#d90688ff', // darker yellow
   ];
+
+  const INCOME_COLORS = [
+    '#00ffaaff', // green
+    '#00ffe1ff', // teal
+    '#01d9ffff', // cyan
+    '#00eea3ff', // darker green
+    '#0D9488', // darker teal
+    '#06a9d1ff', // darker cyan
+  ];
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
+          <p className="font-semibold text-foreground">{payload[0].name}</p>
+          <p className="text-foreground font-medium">
+            ₹{payload[0].value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
+  const hasData = incomeData.length > 0 || expenseData.length > 0;
 
   return (
     <Card className="bg-gradient-card shadow-card-shadow">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-foreground">
-          Spending by Category
+          Income & Expenses by Category
         </CardTitle>
       </CardHeader>
       <CardContent>
-        {data.length === 0 ? (
-          <p className="text-muted-foreground text-center py-8">No expenses to display</p>
+        {!hasData ? (
+          <p className="text-muted-foreground text-center py-8">No transactions to display</p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Legend 
-                verticalAlign="bottom" 
-                height={36}
-                formatter={(value) => (
-                  <span className="text-sm text-foreground">{value}</span>
-                )}
-              />
-            </PieChart>
-          </ResponsiveContainer>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Income Chart */}
+            {incomeData.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-success text-center">Income</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={incomeData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {incomeData.map((entry, index) => (
+                        <Cell 
+                          key={`income-${index}`} 
+                          fill={INCOME_COLORS[index % INCOME_COLORS.length]} 
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value) => (
+                        <span className="text-xs text-foreground">{value}</span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+
+            {/* Expense Chart */}
+            {expenseData.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium text-destructive text-center">Expenses</h3>
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={expenseData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {expenseData.map((entry, index) => (
+                        <Cell 
+                          key={`expense-${index}`} 
+                          fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} 
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip content={<CustomTooltip />} />
+                    <Legend 
+                      verticalAlign="bottom" 
+                      height={36}
+                      formatter={(value) => (
+                        <span className="text-xs text-foreground">{value}</span>
+                      )}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
         )}
       </CardContent>
     </Card>

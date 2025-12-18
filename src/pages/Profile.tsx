@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { ArrowLeftIcon, SaveIcon, Loader2, UploadIcon, UserIcon } from "lucide-react";
+import { ArrowLeftIcon, SaveIcon, Loader2, UploadIcon, UserIcon, BookOpen } from "lucide-react";
 
 interface ProfileData {
   full_name: string;
@@ -395,6 +395,36 @@ const Profile = () => {
                   <span className="text-sm text-muted-foreground">User ID</span>
                   <span className="text-sm font-mono text-foreground">{user?.id}</span>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Help & Settings */}
+          <Card className="bg-gradient-card shadow-card-shadow mt-6">
+            <CardHeader>
+              <CardTitle>Help & Settings</CardTitle>
+              <CardDescription>Get help and manage your preferences</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                <Button
+                  variant="outline"
+                  className="w-full justify-start border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                  onClick={() => {
+                    localStorage.removeItem("expense-tracker-onboarding-completed");
+                    toast({
+                      title: "Tour Restarted",
+                      description: "Return to the dashboard to start the guided tour.",
+                    });
+                    setTimeout(() => navigate("/"), 1000);
+                  }}
+                >
+                  <BookOpen className="mr-2 h-4 w-4" />
+                  Restart Onboarding Tour
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  Need a refresher? Take the guided tour again to learn about all features.
+                </p>
               </div>
             </CardContent>
           </Card>

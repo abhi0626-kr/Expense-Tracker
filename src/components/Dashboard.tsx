@@ -16,10 +16,15 @@ import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
 import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
 import { ThemeToggle } from "./ThemeToggle";
+import { OnboardingTour } from "./OnboardingTour";
+import { WelcomeDialog } from "./WelcomeDialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
 import { useBudgets } from "@/hooks/useBudgets";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { dashboardTourSteps } from "@/utils/tourSteps";
 import { supabase } from "@/integrations/supabase/client";
+import { CallBackProps, STATUS } from "react-joyride";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -39,6 +44,7 @@ const Dashboard = () => {
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [profileImage, setProfileImage] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
+  const { run, stepIndex, setStepIndex, completeTour, skipTour, startTour } = useOnboarding();
 
   useEffect(() => {
     if (user) {
@@ -98,6 +104,21 @@ const Dashboard = () => {
     await signOut();
   };
 
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status, index, type } = data;
+    const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
+
+    if (finishedStatuses.includes(status)) {
+      if (status === STATUS.SKIPPED) {
+        skipTour();
+      } else {
+        completeTour();
+      }
+    } else if (type === 'step:after' || type === 'target:found') {
+      setStepIndex(index + (type === 'step:after' ? 1 : 0));
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -117,6 +138,7 @@ const Dashboard = () => {
           </div>
           <div className="flex flex-wrap gap-2">
             <Button 
+              data-tour="add-transaction"
               onClick={() => setShowAddTransaction(true)}
               className="bg-success hover:bg-success/90 text-success-foreground shadow-financial flex-1 sm:flex-none"
               size="sm"
@@ -126,6 +148,7 @@ const Dashboard = () => {
               <span className="sm:hidden">Add</span>
             </Button>
             <Button 
+              data-tour="transfer-funds"
               onClick={() => setShowTransferFunds(true)}
               variant="outline"
               className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex-1 sm:flex-none"
@@ -135,6 +158,7 @@ const Dashboard = () => {
               <span className="hidden sm:inline">Transfer</span>
             </Button>
             <Button 
+              data-tour="features-button"
               onClick={() => navigate("/features")}
               variant="outline"
               className="border-primary text-primary hover:bg-primary hover:text-primary-foreground flex-1 sm:flex-none relative"
@@ -149,6 +173,7 @@ const Dashboard = () => {
               )}
             </Button>
             <Button 
+              data-tour="profile-button"
               onClick={() => navigate("/profile")}
               variant="outline"
               className="border-border hover:bg-accent flex items-center gap-2"
@@ -162,8 +187,11 @@ const Dashboard = () => {
               </Avatar>
               <span className="hidden sm:inline">{userName || "Profile"}</span>
             </Button>
-            <ThemeToggle />
+            <div data-tour="theme-toggle">
+              <ThemeToggle />
+            </div>
             <Button 
+              data-tour="signout-button"
               onClick={handleSignOut}
               variant="outline"
               className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
@@ -194,7 +222,7 @@ const Dashboard = () => {
 
         {/* Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-          <Card className="bg-gradient-card shadow-card-shadow">
+          <Card data-tour="total-balance" className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Balance
@@ -208,7 +236,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-card shadow-card-shadow">
+          <Card data-tour="total-income" className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Income
@@ -222,7 +250,7 @@ const Dashboard = () => {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-card shadow-card-shadow">
+          <Card data-tour="total-expenses" className="bg-gradient-card shadow-card-shadow">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
                 Total Expenses
@@ -238,7 +266,7 @@ const Dashboard = () => {
         </div>
 
         {/* Accounts Section */}
-        <div className="space-y-3 md:space-y-4">
+        <div data-tour="accounts-section" className="space-y-3 md:space-y-4">
           <h2 className="text-lg md:text-xl font-semibold text-foreground">Your Accounts</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
             {accounts.slice(0, 3).map((account) => (
@@ -253,23 +281,35 @@ const Dashboard = () => {
 
         {/* Trend Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <SpendingTrendChart transactions={transactions} />
-          <CategoryTrendChart transactions={transactions} />
+          <div data-tour="spending-trend">
+            <SpendingTrendChart transactions={transactions} />
+          </div>
+          <div data-tour="category-trend">
+            <CategoryTrendChart transactions={transactions} />
+          </div>
         </div>
 
         {/* Comparison Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <WeeklyComparisonChart transactions={transactions} />
-          <MonthlyComparisonChart transactions={transactions} />
+          <div data-tour="weekly-comparison">
+            <WeeklyComparisonChart transactions={transactions} />
+          </div>
+          <div data-tour="monthly-comparison">
+            <MonthlyComparisonChart transactions={transactions} />
+          </div>
         </div>
 
         {/* Charts and Transactions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <SpendingChart transactions={transactions} />
-          <TransactionList 
-            transactions={transactions} 
-            onDeleteTransaction={handleDeleteTransaction}
-          />
+          <div data-tour="spending-chart">
+            <SpendingChart transactions={transactions} />
+          </div>
+          <div data-tour="transaction-list">
+            <TransactionList 
+              transactions={transactions} 
+              onDeleteTransaction={handleDeleteTransaction}
+            />
+          </div>
         </div>
 
         {/* Add Transaction Modal */}
@@ -296,6 +336,17 @@ const Dashboard = () => {
           onOpenChange={setShowTransferFunds}
           accounts={accounts}
           onTransfer={handleTransferFunds}
+        />
+
+        {/* Welcome Dialog */}
+        <WelcomeDialog onStartTour={startTour} onSkip={skipTour} />
+
+        {/* Onboarding Tour */}
+        <OnboardingTour
+          steps={dashboardTourSteps}
+          run={run}
+          stepIndex={stepIndex}
+          onCallback={handleJoyrideCallback}
         />
       </div>
     </div>

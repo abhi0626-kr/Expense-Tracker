@@ -18,11 +18,15 @@ import { RecurringTransactions } from "@/components/RecurringTransactions";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { ExportImport } from "@/components/ExportImport";
 import { AccountManager } from "@/components/AccountManager";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData } from "@/hooks/useExpenseData";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { featuresTourSteps } from "@/utils/tourSteps";
 import { supabase } from "@/integrations/supabase/client";
 import { ImportedTransaction } from "@/utils/exportUtils";
+import { CallBackProps, STATUS } from "react-joyride";
 
 const Features = () => {
   const navigate = useNavigate();
@@ -30,6 +34,7 @@ const Features = () => {
   const { accounts, transactions, addTransaction, addAccount, updateAccount, deleteAccount, removeDuplicateAccounts } = useExpenseData();
   const [profileImage, setProfileImage] = useState<string>("");
   const [activeTab, setActiveTab] = useState("accounts");
+  const { run, stepIndex, setStepIndex, completeTour, skipTour } = useOnboarding();
 
   useEffect(() => {
     if (user) {
@@ -73,13 +78,28 @@ const Features = () => {
     await signOut();
   };
 
+  const handleJoyrideCallback = (data: CallBackProps) => {
+    const { status, index, type } = data;
+    const finishedStatuses: string[] = [STATUS.FINISHED, STATUS.SKIPPED];
+
+    if (finishedStatuses.includes(status)) {
+      if (status === STATUS.SKIPPED) {
+        skipTour();
+      } else {
+        completeTour();
+      }
+    } else if (type === 'step:after' || type === 'target:found') {
+      setStepIndex(index + (type === 'step:after' ? 1 : 0));
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
           <div className="flex items-center gap-2 sm:gap-4">
-            <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate("/")}>
+            <Button data-tour="back-to-dashboard" variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
             <h1 className="text-base sm:text-xl font-semibold">Advanced Features</h1>
@@ -104,23 +124,23 @@ const Features = () => {
       <main className="container px-3 sm:px-4 py-4 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-5 mb-4 sm:mb-6 h-10 sm:h-11">
-            <TabsTrigger value="accounts" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="accounts-tab" value="accounts" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Accounts</span>
             </TabsTrigger>
-            <TabsTrigger value="budgets" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="budgets-tab" value="budgets" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Budgets</span>
             </TabsTrigger>
-            <TabsTrigger value="recurring" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="recurring-tab" value="recurring" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Repeat className="h-4 w-4" />
               <span className="hidden sm:inline">Recurring</span>
             </TabsTrigger>
-            <TabsTrigger value="currency" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="currency-tab" value="currency" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Globe className="h-4 w-4" />
               <span className="hidden sm:inline">Currency</span>
             </TabsTrigger>
-            <TabsTrigger value="export" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="export-tab" value="export" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">Export</span>
             </TabsTrigger>
@@ -157,6 +177,14 @@ const Features = () => {
           </TabsContent>
         </Tabs>
       </main>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        steps={featuresTourSteps}
+        run={run}
+        stepIndex={stepIndex}
+        onCallback={handleJoyrideCallback}
+      />
     </div>
   );
 };
