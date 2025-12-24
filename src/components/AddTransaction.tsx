@@ -5,9 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Account, Transaction } from "@/hooks/useExpenseData";
-import { XIcon, EditIcon } from "lucide-react";
+import { XIcon, EditIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCategories } from "@/hooks/useCategories";
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -17,6 +19,7 @@ interface AddTransactionProps {
 
 export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTransactionProps) => {
   const { toast } = useToast();
+  const { getCategoriesByType, addCategory, deleteCategory, categories: allCategories } = useCategories();
   const [formData, setFormData] = useState({
     accountId: "",
     type: "" as "income" | "expense" | "",
@@ -25,30 +28,83 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     description: "",
     date: new Date().toISOString().split('T')[0]
   });
-  const [editMode, setEditMode] = useState(true);
+  const [editMode, setEditMode] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
+  const [pendingDeleteCategory, setPendingDeleteCategory] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-  const categories = {
-    expense: [
-      "Food & Dining",
-      "Transportation", 
-      "Shopping",
-      "Entertainment",
-      "Bills & Utilities",
-      "Healthcare",
-      "Travel",
-      "Education",
-      "Other"
-    ],
-    income: [
-      "Salary",
-      "Business",
-      "Investment",
-      "Other"
-    ]
+  // Get categories from the database based on transaction type
+  const categoryNames = useMemo(() => {
+    if (!formData.type) return [];
+    return getCategoriesByType(formData.type);
+  }, [formData.type, getCategoriesByType]);
+
+  // Get full category objects to check if they're custom (for delete functionality)
+  const currentTypeCategories = useMemo(() => {
+    if (!formData.type) return [];
+    return allCategories.filter(cat => cat.type === formData.type);
+  }, [formData.type, allCategories]);
+
+  // Check if a category is custom (not a default one)
+  const isCustomCategory = (categoryName: string) => {
+    const category = currentTypeCategories.find(cat => cat.name === categoryName);
+    return category ? category.id.startsWith('custom-') : false;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Prompt delete category
+  const promptDeleteCategory = (categoryName: string, e: React.MouseEvent | React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPendingDeleteCategory(categoryName);
+    setDeleteDialogOpen(true);
+  };
+
+  // Execute delete after confirmation
+  const handleDeleteCategory = async () => {
+    if (!pendingDeleteCategory) return;
+    const category = currentTypeCategories.find(cat => cat.name === pendingDeleteCategory);
+    if (!category) {
+      setDeleteDialogOpen(false);
+      return;
+    }
+
+    const success = await deleteCategory(category.id);
+    if (success && formData.category === pendingDeleteCategory) {
+      setFormData({ ...formData, category: "" });
+    }
+
+    setPendingDeleteCategory(null);
+    setDeleteDialogOpen(false);
+  };
+
+  const handleAddCustomCategory = async () => {
+    if (!customCategory.trim()) {
+      toast({
+        title: "Invalid Category",
+        description: "Please enter a category name",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (!formData.type) {
+      toast({
+        title: "Select Transaction Type",
+        description: "Please select a transaction type first",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const success = await addCategory(customCategory.trim(), formData.type);
+    if (success) {
+      setFormData({ ...formData, category: customCategory.trim() });
+      setCustomCategory("");
+      setEditMode(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Check if category or custom category is filled
@@ -63,11 +119,19 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       return;
     }
 
+    // If using custom category, save it first
+    let finalCategory = formData.category;
+    if (customCategory.trim() && !formData.category) {
+      const success = await addCategory(customCategory.trim(), formData.type);
+      if (!success) return;
+      finalCategory = customCategory.trim();
+    }
+
     onAddTransaction({
       account_id: formData.accountId,
       type: formData.type,
       amount: parseFloat(formData.amount),
-      category: formData.category || customCategory.trim(),
+      category: finalCategory,
       description: formData.description,
       date: formData.date
     });
@@ -87,6 +151,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       date: new Date().toISOString().split('T')[0]
     });
     setCustomCategory("");
+    setEditMode(false);
   };
 
   // Show each account name only once to avoid duplicates in the dropdown
@@ -174,6 +239,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                   onValueChange={(value) => {
                     setFormData({ ...formData, category: value });
                     setCustomCategory("");
+                    setEditMode(false);
                   }}
                   disabled={!formData.type}
                 >
@@ -181,9 +247,28 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
                   <SelectContent>
-                    {formData.type && categories[formData.type].map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                    {categoryNames.map((categoryName) => (
+                      <SelectItem key={categoryName} value={categoryName}>
+                        <div className="flex items-center justify-between w-full pr-2">
+                          <span>{categoryName}</span>
+                          {isCustomCategory(categoryName) && (
+                            <button
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onPointerUp={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => promptDeleteCategory(categoryName, e)}
+                              className="ml-2 p-1 hover:bg-destructive/10 rounded transition-colors"
+                              title="Delete category"
+                            >
+                              <Trash2Icon className="w-3 h-3 text-destructive" />
+                            </button>
+                          )}
+                        </div>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -193,22 +278,41 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                   variant="outline"
                   size="sm"
                   onClick={() => {
+                    setEditMode(!editMode);
                     setFormData({ ...formData, category: "" });
                     setCustomCategory("");
                   }}
                   title="Add custom category"
                   className="px-3"
+                  disabled={!formData.type}
                 >
                   <EditIcon className="w-4 h-4" />
                 </Button>
               </div>
-              {!formData.category && (
-                <Input
-                  placeholder="Or enter custom category"
-                  value={customCategory}
-                  onChange={(e) => setCustomCategory(e.target.value)}
-                  className="mt-2"
-                />
+              {editMode && (
+                <div className="flex gap-2 mt-2">
+                  <Input
+                    placeholder="Enter custom category name"
+                    value={customCategory}
+                    onChange={(e) => setCustomCategory(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddCustomCategory();
+                      }
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="default"
+                    size="sm"
+                    onClick={handleAddCustomCategory}
+                    title="Save category"
+                    className="px-3 bg-success hover:bg-success/90"
+                  >
+                    <PlusIcon className="w-4 h-4" />
+                  </Button>
+                </div>
               )}
             </div>
 
@@ -220,6 +324,27 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                 onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               />
             </div>
+
+            <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    {`Are you sure you want to delete "${pendingDeleteCategory || "this category"}"?`}
+                    <p className="mt-2 text-xs text-muted-foreground">This action cannot be undone.</p>
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={handleDeleteCategory}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
 
             <div className="space-y-2">
               <Label htmlFor="date">Date</Label>
