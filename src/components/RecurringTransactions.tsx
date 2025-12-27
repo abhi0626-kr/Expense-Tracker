@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import {
   Plus,
   Pencil,
@@ -30,6 +31,7 @@ import {
   Play,
 } from "lucide-react";
 import { useRecurringTransactions, RecurringTransaction } from "@/hooks/useRecurringTransactions";
+import { useCategories } from "@/hooks/useCategories";
 import { Account } from "@/hooks/useExpenseData";
 
 const EXPENSE_CATEGORIES = [
@@ -65,6 +67,8 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
     toggleRecurringTransaction,
   } = useRecurringTransactions();
 
+  const { getCategoriesByType, addCategory, deleteCategory, categories: allCategories } = useCategories();
+
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<RecurringTransaction | null>(null);
   const [formData, setFormData] = useState({
@@ -77,6 +81,11 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
     start_date: new Date().toISOString().split("T")[0],
     end_date: "",
   });
+
+  const [categoryEditMode, setCategoryEditMode] = useState(false);
+  const [customCategory, setCustomCategory] = useState("");
+  const [pendingDeleteCategory, setPendingDeleteCategory] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const resetForm = () => {
     setFormData({
@@ -92,13 +101,22 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
   };
 
   const handleSubmit = async () => {
-    if (!formData.account_id || !formData.amount || !formData.category || !formData.description) return;
+    const finalCategory = formData.category || customCategory.trim();
+    if (!formData.account_id || !formData.amount || !finalCategory || !formData.description) return;
+
+    // Persist custom category if used
+    if (!formData.category && customCategory.trim()) {
+      const ok = await addCategory(customCategory.trim(), formData.type);
+      if (ok) {
+        setFormData({ ...formData, category: customCategory.trim() });
+      }
+    }
 
     const transactionData = {
       account_id: formData.account_id,
       type: formData.type,
       amount: parseFloat(formData.amount),
-      category: formData.category,
+      category: finalCategory,
       description: formData.description,
       frequency: formData.frequency,
       start_date: formData.start_date,
@@ -114,6 +132,8 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
     }
 
     resetForm();
+    setCategoryEditMode(false);
+    setCustomCategory("");
     setIsAddDialogOpen(false);
   };
 
@@ -144,6 +164,42 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
 
   const getAccountName = (accountId: string) => {
     return accounts.find((a) => a.id === accountId)?.name || "Unknown";
+  };
+
+  // Categories union: recurring defaults + user categories
+  const categoryNames = useMemo(() => {
+    const fromHook = getCategoriesByType(formData.type);
+    const recurringDefaults = formData.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
+    const set = new Set<string>([...recurringDefaults, ...fromHook]);
+    return Array.from(set);
+  }, [formData.type, getCategoriesByType]);
+
+  const currentTypeCategories = useMemo(() => {
+    return allCategories.filter(c => c.type === formData.type);
+  }, [allCategories, formData.type]);
+
+  const isCustomCategory = (name: string) => {
+    const c = currentTypeCategories.find(cat => cat.name === name);
+    return !!c && c.id.startsWith("custom-");
+  };
+
+  const promptDeleteCategory = (name: string, e: React.MouseEvent | React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setPendingDeleteCategory(name);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteCategoryConfirm = async () => {
+    if (!pendingDeleteCategory) return;
+    const c = currentTypeCategories.find(cat => cat.name === pendingDeleteCategory);
+    if (!c) { setDeleteDialogOpen(false); return; }
+    const ok = await deleteCategory(c.id);
+    if (ok && formData.category === pendingDeleteCategory) {
+      setFormData({ ...formData, category: "" });
+    }
+    setPendingDeleteCategory(null);
+    setDeleteDialogOpen(false);
   };
 
   if (loading) {
@@ -231,27 +287,97 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                 </div>
                 <div className="space-y-2">
                   <Label>Category</Label>
-                  <Select
-                    value={formData.category}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select category" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {(formData.type === "expense"
-                        ? EXPENSE_CATEGORIES
-                        : INCOME_CATEGORIES
-                      ).map((category) => (
-                        <SelectItem key={category} value={category}>
-                          {category}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <div className="flex gap-2">
+                    <Select
+                      value={formData.category}
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, category: value });
+                        setCustomCategory("");
+                        setCategoryEditMode(false);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {categoryNames.map((name) => (
+                          <SelectItem key={name} value={name}>
+                            <div className="flex items-center justify-between w-full pr-2">
+                              <span>{name}</span>
+                              {isCustomCategory(name) && (
+                                <button
+                                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                  onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                  onClick={(e) => promptDeleteCategory(name, e)}
+                                  className="ml-2 p-1 hover:bg-destructive/10 rounded"
+                                  title="Delete category"
+                                >
+                                  <Trash2 className="w-3 h-3 text-destructive" />
+                                </button>
+                              )}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setCategoryEditMode(!categoryEditMode);
+                        setFormData({ ...formData, category: "" });
+                        setCustomCategory("");
+                      }}
+                      title="Add custom category"
+                      className="px-3"
+                    >
+                      <Pencil className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  {categoryEditMode && (
+                    <div className="flex gap-2 mt-2">
+                      <Input
+                        placeholder="Enter custom category"
+                        value={customCategory}
+                        onChange={(e) => setCustomCategory(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(customCategory.trim(), formData.type).then((ok) => { if (ok) { setFormData({ ...formData, category: customCategory.trim() }); setCustomCategory(""); setCategoryEditMode(false); } }); } }}
+                      />
+                      <Button
+                        type="button"
+                        onClick={async () => {
+                          if (!customCategory.trim()) return;
+                          const ok = await addCategory(customCategory.trim(), formData.type);
+                          if (ok) {
+                            setFormData({ ...formData, category: customCategory.trim() });
+                            setCustomCategory("");
+                            setCategoryEditMode(false);
+                          }
+                        }}
+                      >
+                        Add
+                      </Button>
+                    </div>
+                  )}
                 </div>
+
+                <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+                  <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete Category?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {`Are you sure you want to delete "${pendingDeleteCategory || "this category"}"?`}
+                        <p className="mt-2 text-xs text-muted-foreground">This action cannot be undone.</p>
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction className="bg-destructive hover:bg-destructive/90" onClick={handleDeleteCategoryConfirm}>
+                        Delete
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Input
