@@ -4,6 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon, Settings2, AlertTriangle } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
@@ -190,16 +201,36 @@ const Dashboard = () => {
             <div data-tour="theme-toggle">
               <ThemeToggle />
             </div>
-            <Button 
-              data-tour="signout-button"
-              onClick={handleSignOut}
-              variant="outline"
-              className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
-              size="sm"
-            >
-              <LogOutIcon className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Sign Out</span>
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  data-tour="signout-button"
+                  variant="outline"
+                  className="border-destructive text-destructive hover:bg-destructive hover:text-destructive-foreground"
+                  size="sm"
+                >
+                  <LogOutIcon className="w-4 h-4 sm:mr-2" />
+                  <span className="hidden sm:inline">Sign Out</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sign Out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to sign out? You'll need to sign in again to access your account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         </div>
 
@@ -307,6 +338,7 @@ const Dashboard = () => {
           <div data-tour="transaction-list">
             <TransactionList 
               transactions={transactions} 
+              accounts={accounts}
               onDeleteTransaction={handleDeleteTransaction}
             />
           </div>
