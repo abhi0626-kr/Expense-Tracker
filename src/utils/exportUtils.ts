@@ -9,6 +9,7 @@ export interface ImportedTransaction {
   category: string;
   type: "income" | "expense";
   amount: number;
+  time?: string;
 }
 
 export const exportToCSV = (transactions: Transaction[], filename = "transactions.csv") => {

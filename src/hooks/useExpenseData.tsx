@@ -19,6 +19,7 @@ export interface Transaction {
   category: string;
   description: string;
   date: string;
+  time: string;
 }
 
 export const useExpenseData = () => {
@@ -165,7 +166,8 @@ export const useExpenseData = () => {
           amount: transaction.amount,
           category: transaction.category,
           description: transaction.description,
-          date: transaction.date
+          date: transaction.date,
+          time: transaction.time
         })
         .select()
         .single();
@@ -429,7 +431,8 @@ export const useExpenseData = () => {
           amount: -amount,
           category: "Transfer Out",
           description: description || `Transfer to ${toAccount.name}`,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toTimeString().split(' ')[0].substring(0, 5)
         })
         .select()
         .single();
@@ -446,7 +449,8 @@ export const useExpenseData = () => {
           amount: amount,
           category: "Transfer In",
           description: description || `Transfer from ${fromAccount.name}`,
-          date: new Date().toISOString().split('T')[0]
+          date: new Date().toISOString().split('T')[0],
+          time: new Date().toTimeString().split(' ')[0].substring(0, 5)
         })
         .select()
         .single();

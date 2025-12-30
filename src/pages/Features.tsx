@@ -70,6 +70,7 @@ const Features = () => {
         category: tx.category,
         description: `[Imported] ${tx.description}`,
         date: tx.date,
+        time: tx.time || "00:00"
       });
     }
   };

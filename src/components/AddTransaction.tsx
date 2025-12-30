@@ -26,7 +26,8 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     amount: "",
     category: "",
     description: "",
-    date: new Date().toISOString().split('T')[0]
+    date: new Date().toISOString().split('T')[0],
+    time: new Date().toTimeString().split(' ')[0].substring(0, 5)
   });
   const [editMode, setEditMode] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
@@ -133,7 +134,8 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       amount: parseFloat(formData.amount),
       category: finalCategory,
       description: formData.description,
-      date: formData.date
+      date: formData.date,
+      time: formData.time
     });
 
     toast({
@@ -148,7 +150,8 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       amount: "",
       category: "",
       description: "",
-      date: new Date().toISOString().split('T')[0]
+      date: new Date().toISOString().split('T')[0],
+      time: new Date().toTimeString().split(' ')[0].substring(0, 5)
     });
     setCustomCategory("");
     setEditMode(false);
@@ -352,6 +355,15 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                 type="date"
                 value={formData.date}
                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="time">Time</Label>
+              <Input
+                type="time"
+                value={formData.time}
+                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
               />
             </div>
 
