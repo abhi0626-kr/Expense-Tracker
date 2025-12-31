@@ -56,6 +56,7 @@ A modern expense tracker built with React 18, Vite, TypeScript, Tailwind (shadcn
   - Mobile-responsive design
   - Onboarding tour for new users
   - Import/Export data
+  - Confirmation dialog for sign out
 
 ## Getting Started
 
@@ -177,6 +178,11 @@ Click any transaction to see:
 - Shows the transfer amount once (not duplicated)
 - Deleting a transfer removes both sides automatically
 - Transfer details dialog shows both source and destination accounts
+
+### Sign Out Confirmation
+- Confirmation dialog appears when clicking the Sign Out button
+- Prevents accidental logouts
+- Clear "Cancel" and "Sign Out" options
 
 ## Scripts
 ```json
