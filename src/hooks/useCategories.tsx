@@ -12,7 +12,7 @@ export interface Category {
 }
 
 // Default categories to ensure they exist
-const defaultCategories = {
+export const DEFAULT_CATEGORIES = {
   expense: [
     "Food & Dining",
     "Transportation",

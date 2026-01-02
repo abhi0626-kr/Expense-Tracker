@@ -1,3 +1,12 @@
+const formatTime12h = (time?: string) => {
+  if (!time) return "Not available";
+  const [hStr, m = "00"] = time.split(":");
+  const hNum = Number(hStr);
+  if (Number.isNaN(hNum)) return time;
+  const period = hNum >= 12 ? "PM" : "AM";
+  const hour12 = hNum % 12 === 0 ? 12 : hNum % 12;
+  return `${hour12.toString().padStart(2, "0")}:${m.padStart(2, "0")} ${period}`;
+};
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -334,9 +343,7 @@ const TransactionHistory = () => {
                 const formattedDate = hasValidDate
                   ? transactionDate.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
                   : "Not available";
-                const formattedTime = hasValidDate
-                  ? transactionDate.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
-                  : "Not available";
+                const formattedTime = formatTime12h(selectedTransaction.transaction.time);
 
                 return (
                   <div className="space-y-4">

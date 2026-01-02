@@ -29,6 +29,7 @@ export const useExpenseData = () => {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const defaultAccountsCreated = useRef(false);
+  const timeColumnMissingRef = useRef(false);
 
   // Fetch accounts
   const fetchAccounts = async () => {
@@ -79,7 +80,8 @@ export const useExpenseData = () => {
         amount: transaction.amount ? parseFloat(transaction.amount.toString()) : 0,
         category: transaction.category,
         description: transaction.description,
-        date: transaction.date
+        date: transaction.date,
+        time: transaction.time ? transaction.time.toString().slice(0, 5) : "00:00"
       })));
     } catch (error: any) {
       toast({
@@ -157,22 +159,51 @@ export const useExpenseData = () => {
     if (!user) return;
 
     try {
-      const { data: newTransaction, error } = await supabase
-        .from("transactions")
-        .insert({
-          user_id: user.id,
-          account_id: transaction.account_id,
-          type: transaction.type,
-          amount: transaction.amount,
-          category: transaction.category,
-          description: transaction.description,
-          date: transaction.date,
-          time: transaction.time
-        })
-        .select()
-        .single();
+      const basePayload = {
+        user_id: user.id,
+        account_id: transaction.account_id,
+        type: transaction.type,
+        amount: transaction.amount,
+        category: transaction.category,
+        description: transaction.description,
+        date: transaction.date
+      };
 
-      if (error) throw error;
+      const desiredTime = transaction.time || "00:00";
+
+      const insertWithPayload = async (payload: typeof basePayload & { time?: string }) => {
+        return supabase
+          .from("transactions")
+          .insert(payload)
+          .select()
+          .single();
+      };
+
+      const isMissingTimeColumn = (err: any) => {
+        const message = typeof err?.message === "string" ? err.message.toLowerCase() : "";
+        return message.includes("'time' column") || message.includes("column 'time'") || message.includes("time column");
+      };
+
+      let { data: newTransaction, error } = await insertWithPayload({ ...basePayload, time: desiredTime });
+
+      if (error && isMissingTimeColumn(error)) {
+        const shouldNotify = !timeColumnMissingRef.current;
+        timeColumnMissingRef.current = true;
+        const fallbackResult = await insertWithPayload(basePayload);
+        if (fallbackResult.error) {
+          throw fallbackResult.error;
+        }
+        newTransaction = fallbackResult.data;
+        if (shouldNotify) {
+          toast({
+            title: "Time column missing in database",
+            description: "Transaction saved without time. Apply the latest Supabase migrations to add the 'time' column.",
+            variant: "destructive",
+          });
+        }
+      } else if (error) {
+        throw error;
+      }
 
       // Update account balance
       const account = accounts.find(a => a.id === transaction.account_id);

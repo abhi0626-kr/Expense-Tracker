@@ -9,7 +9,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Account, Transaction } from "@/hooks/useExpenseData";
 import { XIcon, EditIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCategories } from "@/hooks/useCategories";
+import { useCategories, DEFAULT_CATEGORIES } from "@/hooks/useCategories";
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -48,8 +48,12 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
 
   // Check if a category is custom (not a default one)
   const isCustomCategory = (categoryName: string) => {
-    const category = currentTypeCategories.find(cat => cat.name === categoryName);
-    return category ? category.id.startsWith('custom-') : false;
+    if (!formData.type) return false;
+    const normalized = categoryName.trim().toLowerCase();
+    const isDefault = DEFAULT_CATEGORIES[formData.type].some(
+      name => name.toLowerCase() === normalized
+    );
+    return !isDefault;
   };
 
   // Prompt delete category
