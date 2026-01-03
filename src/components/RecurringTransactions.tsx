@@ -33,8 +33,10 @@ import {
 import { useRecurringTransactions, RecurringTransaction } from "@/hooks/useRecurringTransactions";
 import { useCategories } from "@/hooks/useCategories";
 import { Account } from "@/hooks/useExpenseData";
+import { useToast } from "@/hooks/use-toast";
 
 const EXPENSE_CATEGORIES = [
+  "General",
   "Rent",
   "EMI",
   "Subscriptions",
@@ -45,6 +47,7 @@ const EXPENSE_CATEGORIES = [
 ];
 
 const INCOME_CATEGORIES = [
+  "General",
   "Salary",
   "Freelance",
   "Interest",
@@ -67,13 +70,19 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
     toggleRecurringTransaction,
   } = useRecurringTransactions();
 
+  const { toast } = useToast();
+
   const { getCategoriesByType, addCategory, deleteCategory, categories: allCategories } = useCategories();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<RecurringTransaction | null>(null);
+  const [selectedTransaction, setSelectedTransaction] = useState<RecurringTransaction | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteRecurringOpen, setDeleteRecurringOpen] = useState(false);
   const [formData, setFormData] = useState({
     account_id: "",
-    type: "expense" as "income" | "expense",
+    to_account_id: "",
+    type: "expense" as "income" | "expense" | "transfer",
     amount: "",
     category: "",
     description: "",
@@ -90,6 +99,7 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
   const resetForm = () => {
     setFormData({
       account_id: accounts[0]?.id || "",
+      to_account_id: accounts.find((a) => a.id !== accounts[0]?.id)?.id || "",
       type: "expense",
       amount: "",
       category: "",
@@ -101,22 +111,32 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
   };
 
   const handleSubmit = async () => {
-    const finalCategory = formData.category || customCategory.trim();
-    if (!formData.account_id || !formData.amount || !finalCategory || !formData.description) return;
+    const isTransfer = formData.type === "transfer";
+    const finalCategory = isTransfer ? "" : (formData.category || customCategory.trim());
 
-    // Persist custom category if used
-    if (!formData.category && customCategory.trim()) {
-      const ok = await addCategory(customCategory.trim(), formData.type);
+    if (!formData.account_id || !formData.amount || (!isTransfer && !finalCategory) || !formData.description) return;
+
+    if (isTransfer) {
+      if (!formData.to_account_id) {
+        toast({ title: "Select destination", description: "Choose an account to transfer to", variant: "destructive" });
+        return;
+      }
+      if (formData.to_account_id === formData.account_id) {
+        toast({ title: "Invalid accounts", description: "Source and destination must differ", variant: "destructive" });
+        return;
+      }
+    }
+
+    // Persist custom category if used (non-transfer only)
+    if (!isTransfer && !formData.category && customCategory.trim()) {
+      const ok = await addCategory(customCategory.trim(), formData.type as "income" | "expense");
       if (ok) {
         setFormData({ ...formData, category: customCategory.trim() });
       }
     }
 
-    const transactionData = {
-      account_id: formData.account_id,
-      type: formData.type,
+    const baseData = {
       amount: parseFloat(formData.amount),
-      category: finalCategory,
       description: formData.description,
       frequency: formData.frequency,
       start_date: formData.start_date,
@@ -124,11 +144,59 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
       next_occurrence: formData.start_date,
     };
 
-    if (editingTransaction) {
-      await updateRecurringTransaction(editingTransaction.id, transactionData);
-      setEditingTransaction(null);
+    if (isTransfer) {
+      if (editingTransaction) {
+        toast({ title: "Edit not supported", description: "Create a new transfer instead", variant: "destructive" });
+        return;
+      }
+
+      const fromName = getAccountName(formData.account_id);
+      const toName = getAccountName(formData.to_account_id);
+
+      const expenseTx = {
+        ...baseData,
+        account_id: formData.account_id,
+        type: "expense" as const,
+        category: "Transfer Out",
+        description: `${formData.description} to ${toName}`,
+      };
+
+      const incomeTx = {
+        ...baseData,
+        account_id: formData.to_account_id,
+        type: "income" as const,
+        category: "Transfer In",
+        description: `${formData.description} from ${fromName}`,
+      };
+
+      const okOut = await addRecurringTransaction(expenseTx, { suppressToast: true });
+      const okIn = okOut && await addRecurringTransaction(incomeTx, { suppressToast: true });
+
+      if (okOut && okIn) {
+        toast({
+          title: "Transfer scheduled",
+          description: `₹${baseData.amount.toLocaleString("en-IN")} ${formData.frequency} from ${fromName} to ${toName}`,
+        });
+      }
     } else {
-      await addRecurringTransaction(transactionData);
+      const transactionData = {
+        account_id: formData.account_id,
+        type: formData.type as "income" | "expense",
+        amount: baseData.amount,
+        category: finalCategory,
+        description: baseData.description,
+        frequency: baseData.frequency,
+        start_date: baseData.start_date,
+        end_date: baseData.end_date,
+        next_occurrence: baseData.next_occurrence,
+      };
+
+      if (editingTransaction) {
+        await updateRecurringTransaction(editingTransaction.id, transactionData);
+        setEditingTransaction(null);
+      } else {
+        await addRecurringTransaction(transactionData);
+      }
     }
 
     resetForm();
@@ -140,6 +208,7 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
   const handleEdit = (transaction: RecurringTransaction) => {
     setFormData({
       account_id: transaction.account_id,
+      to_account_id: "",
       type: transaction.type,
       amount: transaction.amount.toString(),
       category: transaction.category,
@@ -166,9 +235,17 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
     return accounts.find((a) => a.id === accountId)?.name || "Unknown";
   };
 
+  const formatDate = (value?: string | null) => {
+    if (!value) return "—";
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return value;
+    return d.toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+  };
+
   // Categories union: recurring defaults + user categories
   const categoryNames = useMemo(() => {
-    const fromHook = getCategoriesByType(formData.type);
+    if (formData.type === "transfer") return [];
+    const fromHook = getCategoriesByType(formData.type as "income" | "expense");
     const recurringDefaults = formData.type === "expense" ? EXPENSE_CATEGORIES : INCOME_CATEGORIES;
     const set = new Set<string>([...recurringDefaults, ...fromHook]);
     return Array.from(set);
@@ -179,6 +256,7 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
   }, [allCategories, formData.type]);
 
   const isCustomCategory = (name: string) => {
+    if (formData.type === "transfer") return false;
     const c = currentTypeCategories.find(cat => cat.name === name);
     return !!c && c.id.startsWith("custom-");
   };
@@ -229,8 +307,8 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
           </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
-              <Button 
-                size="sm" 
+              <Button
+                size="sm"
                 onClick={() => { resetForm(); setEditingTransaction(null); }}
                 className="w-full sm:w-auto"
               >
@@ -252,9 +330,13 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                   <Label>Type</Label>
                   <Select
                     value={formData.type}
-                    onValueChange={(value: "income" | "expense") =>
-                      setFormData({ ...formData, type: value, category: "" })
-                    }
+                    onValueChange={(value: "income" | "expense" | "transfer") => {
+                      if (editingTransaction && value === "transfer") return;
+                      const nextToAccount = value === "transfer"
+                        ? (accounts.find(a => a.id !== formData.account_id)?.id || "")
+                        : "";
+                      setFormData({ ...formData, type: value, category: "", to_account_id: nextToAccount });
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -262,104 +344,182 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                     <SelectContent>
                       <SelectItem value="expense">Expense</SelectItem>
                       <SelectItem value="income">Income</SelectItem>
+                      <SelectItem value="transfer" disabled={!!editingTransaction}>Transfer</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
-                  <Label>Account</Label>
-                  <Select
-                    value={formData.account_id}
-                    onValueChange={(value) =>
-                      setFormData({ ...formData, account_id: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select account" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accounts.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Category</Label>
-                  <div className="flex gap-2">
+                {formData.type === "transfer" && (
+                  <div className="space-y-2">
+                    <Label>From Account</Label>
                     <Select
-                      value={formData.category}
+                      value={formData.account_id}
                       onValueChange={(value) => {
-                        setFormData({ ...formData, category: value });
-                        setCustomCategory("");
-                        setCategoryEditMode(false);
+                        const alt = formData.to_account_id === value ? "" : formData.to_account_id;
+                        setFormData({ ...formData, account_id: value, to_account_id: alt });
                       }}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue placeholder="Select source account" />
                       </SelectTrigger>
                       <SelectContent>
-                        {categoryNames.map((name) => (
-                          <SelectItem key={name} value={name}>
-                            <div className="flex items-center justify-between w-full pr-2">
-                              <span>{name}</span>
-                              {isCustomCategory(name) && (
-                                <button
-                                  onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                  onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                                  onClick={(e) => promptDeleteCategory(name, e)}
-                                  className="ml-2 p-1 hover:bg-destructive/10 rounded"
-                                  title="Delete category"
-                                >
-                                  <Trash2 className="w-3 h-3 text-destructive" />
-                                </button>
-                              )}
-                            </div>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setCategoryEditMode(!categoryEditMode);
-                        setFormData({ ...formData, category: "" });
-                        setCustomCategory("");
-                      }}
-                      title="Add custom category"
-                      className="px-3"
+                    <Label className="pt-2 block">To Account</Label>
+                    <Select
+                      value={formData.to_account_id}
+                      onValueChange={(value) => setFormData({ ...formData, to_account_id: value })}
                     >
-                      <Pencil className="w-4 h-4" />
-                    </Button>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select destination" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts
+                          .filter((account) => account.id !== formData.account_id)
+                          .map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  {categoryEditMode && (
-                    <div className="flex gap-2 mt-2">
-                      <Input
-                        placeholder="Enter custom category"
-                        value={customCategory}
-                        onChange={(e) => setCustomCategory(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addCategory(customCategory.trim(), formData.type).then((ok) => { if (ok) { setFormData({ ...formData, category: customCategory.trim() }); setCustomCategory(""); setCategoryEditMode(false); } }); } }}
-                      />
-                      <Button
-                        type="button"
-                        onClick={async () => {
-                          if (!customCategory.trim()) return;
-                          const ok = await addCategory(customCategory.trim(), formData.type);
-                          if (ok) {
-                            setFormData({ ...formData, category: customCategory.trim() });
-                            setCustomCategory("");
-                            setCategoryEditMode(false);
-                          }
+                )}
+                {formData.type !== "transfer" && (
+                  <div className="space-y-2">
+                    <Label>Account</Label>
+                    <Select
+                      value={formData.account_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, account_id: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {accounts.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {formData.type !== "transfer" ? (
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <div className="flex gap-2">
+                      <Select
+                        value={formData.category}
+                        onValueChange={(value) => {
+                          setFormData({ ...formData, category: value });
+                          setCustomCategory("");
+                          setCategoryEditMode(false);
                         }}
                       >
-                        Add
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select category" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {categoryNames.map((name) => (
+                            <SelectItem key={name} value={name}>
+                              <div className="flex items-center justify-between w-full pr-2">
+                                <span>{name}</span>
+                                {isCustomCategory(name) && (
+                                  <button
+                                    onPointerDown={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                    onPointerUp={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                                    onClick={(e) => promptDeleteCategory(name, e)}
+                                    className="ml-2 p-1 hover:bg-destructive/10 rounded"
+                                    title="Delete category"
+                                  >
+                                    <Trash2 className="w-3 h-3 text-destructive" />
+                                  </button>
+                                )}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setCategoryEditMode(!categoryEditMode);
+                          setFormData({ ...formData, category: "" });
+                          setCustomCategory("");
+                        }}
+                        title="Add custom category"
+                        className="px-3"
+                      >
+                        <Pencil className="w-4 h-4" />
                       </Button>
                     </div>
-                  )}
-                </div>
+                    {categoryEditMode && (
+                      <div className="flex gap-2 mt-2">
+                        <Input
+                          placeholder="Enter custom category"
+                          value={customCategory}
+                          onChange={(e) => setCustomCategory(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              if (formData.type === "transfer") {
+                                toast({
+                                  title: "Transfers don't use categories",
+                                  description: "Switch to income/expense to add a category",
+                                  variant: "destructive",
+                                });
+                                return;
+                              }
+                              addCategory(customCategory.trim(), formData.type as "income" | "expense").then((ok) => {
+                                if (ok) {
+                                  setFormData({ ...formData, category: customCategory.trim() });
+                                  setCustomCategory("");
+                                  setCategoryEditMode(false);
+                                }
+                              });
+                            }
+                          }}
+                        />
+                        <Button
+                          type="button"
+                          onClick={async () => {
+                            if (!customCategory.trim()) return;
+                            if (formData.type === "transfer") {
+                              toast({
+                                title: "Transfers don't use categories",
+                                description: "Switch to income/expense to add a category",
+                                variant: "destructive",
+                              });
+                              return;
+                            }
+                            const ok = await addCategory(customCategory.trim(), formData.type as "income" | "expense");
+                            if (ok) {
+                              setFormData({ ...formData, category: customCategory.trim() });
+                              setCustomCategory("");
+                              setCategoryEditMode(false);
+                            }
+                          }}
+                        >
+                          Add
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <Label>Category</Label>
+                    <p className="text-sm text-muted-foreground">Transfers don't use categories. Switch to income or expense if you need one.</p>
+                  </div>
+                )}
 
                 <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
                   <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
@@ -378,6 +538,7 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
+
                 <div className="space-y-2">
                   <Label>Description</Label>
                   <Input
@@ -466,6 +627,9 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                 className={`p-3 sm:p-4 border rounded-lg bg-card/50 ${
                   !transaction.is_active ? "opacity-50" : ""
                 }`}
+                onClick={() => setSelectedTransaction(transaction)}
+                role="button"
+                tabIndex={0}
               >
                 {/* Mobile Layout */}
                 <div className="flex flex-col gap-3">
@@ -517,12 +681,13 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2"
-                      onClick={() =>
+                      onClick={(e) => {
+                        e.stopPropagation();
                         toggleRecurringTransaction(
                           transaction.id,
                           !transaction.is_active
-                        )
-                      }
+                        );
+                      }}
                       title={transaction.is_active ? "Pause" : "Resume"}
                     >
                       {transaction.is_active ? (
@@ -535,7 +700,10 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2"
-                      onClick={() => handleEdit(transaction)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(transaction);
+                      }}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
@@ -543,7 +711,11 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                       variant="ghost"
                       size="sm"
                       className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                      onClick={() => deleteRecurringTransaction(transaction.id)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setPendingDeleteId(transaction.id);
+                        setDeleteRecurringOpen(true);
+                      }}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -551,6 +723,92 @@ export const RecurringTransactions = ({ accounts }: RecurringTransactionsProps) 
                 </div>
               </div>
             ))}
+            <AlertDialog open={deleteRecurringOpen} onOpenChange={setDeleteRecurringOpen}>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete recurring transaction?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This will remove the recurring schedule. Existing posted transactions stay unchanged.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={async () => {
+                      if (pendingDeleteId) {
+                        await deleteRecurringTransaction(pendingDeleteId);
+                      }
+                      setPendingDeleteId(null);
+                      setDeleteRecurringOpen(false);
+                    }}
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+            <Dialog open={!!selectedTransaction} onOpenChange={(open) => !open && setSelectedTransaction(null)}>
+              <DialogContent className="max-w-[95vw] sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Recurring Transaction Details</DialogTitle>
+                  <DialogDescription>Full breakdown of this recurring entry</DialogDescription>
+                </DialogHeader>
+                {selectedTransaction && (
+                  <div className="space-y-3 text-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-muted-foreground">Description</p>
+                        <p className="text-foreground font-medium break-words">{selectedTransaction.description}</p>
+                      </div>
+                      <Badge
+                        variant={selectedTransaction.type === "income" ? "default" : "secondary"}
+                        className="capitalize"
+                      >
+                        {selectedTransaction.type}
+                      </Badge>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <p className="text-muted-foreground">Amount</p>
+                        <p className={`font-semibold ${selectedTransaction.type === "income" ? "text-green-500" : "text-red-500"}`}>
+                          {selectedTransaction.type === "income" ? "+" : "-"}₹{selectedTransaction.amount.toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Frequency</p>
+                        <p className="font-medium">{getFrequencyLabel(selectedTransaction.frequency)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Account</p>
+                        <p className="font-medium">{getAccountName(selectedTransaction.account_id)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Category</p>
+                        <p className="font-medium">{selectedTransaction.category}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Start Date</p>
+                        <p className="font-medium">{formatDate(selectedTransaction.start_date)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">End Date</p>
+                        <p className="font-medium">{formatDate(selectedTransaction.end_date)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Next Occurrence</p>
+                        <p className="font-medium">{formatDate(selectedTransaction.next_occurrence)}</p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground">Status</p>
+                        <p className="font-medium">{selectedTransaction.is_active ? "Active" : "Paused"}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </DialogContent>
+            </Dialog>
           </div>
         )}
       </CardContent>

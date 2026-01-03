@@ -70,9 +70,10 @@ export const useRecurringTransactions = () => {
 
   // Add recurring transaction
   const addRecurringTransaction = async (
-    transaction: Omit<RecurringTransaction, "id" | "last_processed" | "is_active">
-  ) => {
-    if (!user) return;
+    transaction: Omit<RecurringTransaction, "id" | "last_processed" | "is_active">,
+    options?: { suppressToast?: boolean; toastMessage?: string }
+  ): Promise<boolean> => {
+    if (!user) return false;
 
     try {
       const { error } = await supabase.from("recurring_transactions").insert({
@@ -92,16 +93,21 @@ export const useRecurringTransactions = () => {
       if (error) throw error;
 
       await fetchRecurringTransactions();
-      toast({
-        title: "Recurring transaction created",
-        description: `${transaction.description} will be added ${transaction.frequency}.`,
-      });
+      if (!options?.suppressToast) {
+        toast({
+          title: "Recurring transaction created",
+          description:
+            options?.toastMessage || `${transaction.description} will be added ${transaction.frequency}.`,
+        });
+      }
+      return true;
     } catch (error: any) {
       toast({
         title: "Error creating recurring transaction",
         description: error.message,
         variant: "destructive",
       });
+      return false;
     }
   };
 
@@ -113,20 +119,29 @@ export const useRecurringTransactions = () => {
     if (!user) return;
 
     try {
+      const payload: Record<string, any> = {
+        account_id: transaction.account_id,
+        type: transaction.type,
+        amount: transaction.amount,
+        category: transaction.category,
+        description: transaction.description,
+        frequency: transaction.frequency,
+        start_date: transaction.start_date,
+        end_date: transaction.end_date,
+        is_active: transaction.is_active,
+        updated_at: new Date().toISOString(),
+      };
+
+      if (transaction.start_date) {
+        // Keep next_occurrence in sync when start date changes
+        payload.next_occurrence = transaction.next_occurrence || transaction.start_date;
+      } else if (transaction.next_occurrence) {
+        payload.next_occurrence = transaction.next_occurrence;
+      }
+
       const { error } = await supabase
         .from("recurring_transactions")
-        .update({
-          account_id: transaction.account_id,
-          type: transaction.type,
-          amount: transaction.amount,
-          category: transaction.category,
-          description: transaction.description,
-          frequency: transaction.frequency,
-          start_date: transaction.start_date,
-          end_date: transaction.end_date,
-          is_active: transaction.is_active,
-          updated_at: new Date().toISOString(),
-        })
+        .update(payload)
         .eq("id", id)
         .eq("user_id", user.id);
 
