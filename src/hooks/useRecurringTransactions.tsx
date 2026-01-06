@@ -24,6 +24,30 @@ export const useRecurringTransactions = () => {
   const [recurringTransactions, setRecurringTransactions] = useState<RecurringTransaction[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const calculateNextOccurrence = useCallback((current: string, frequency: RecurringTransaction["frequency"]) => {
+    const date = new Date(current);
+    if (Number.isNaN(date.getTime())) return current;
+
+    switch (frequency) {
+      case "daily":
+        date.setDate(date.getDate() + 1);
+        break;
+      case "weekly":
+        date.setDate(date.getDate() + 7);
+        break;
+      case "monthly":
+        date.setMonth(date.getMonth() + 1);
+        break;
+      case "yearly":
+        date.setFullYear(date.getFullYear() + 1);
+        break;
+      default:
+        break;
+    }
+
+    return date.toISOString().split("T")[0];
+  }, []);
+
   // Fetch recurring transactions
   const fetchRecurringTransactions = useCallback(async () => {
     if (!user) {
@@ -67,6 +91,101 @@ export const useRecurringTransactions = () => {
       setLoading(false);
     }
   }, [user]);
+
+  const processDueRecurringTransactions = useCallback(async () => {
+    if (!user) return;
+
+    const today = new Date();
+    const todayStr = today.toISOString().split("T")[0];
+
+    try {
+      const { data: dueTransactions, error } = await supabase
+        .from("recurring_transactions")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .lte("next_occurrence", todayStr)
+        .or(`end_date.is.null,end_date.gte.${todayStr}`);
+
+      if (error) throw error;
+
+      for (const rt of dueTransactions || []) {
+        let currentDate = rt.next_occurrence || todayStr;
+
+        while (currentDate && currentDate <= todayStr) {
+          if (rt.end_date && currentDate > rt.end_date) {
+            break;
+          }
+
+          const { data: accountRow, error: accountError } = await supabase
+            .from("accounts")
+            .select("balance")
+            .eq("id", rt.account_id)
+            .eq("user_id", user.id)
+            .single();
+
+          if (accountError) throw accountError;
+
+          const amountChange = rt.type === "income" ? rt.amount : -rt.amount;
+          const nextBalance = (parseFloat(accountRow?.balance as any) || 0) + amountChange;
+
+          const { error: txError } = await supabase.from("transactions").insert({
+            user_id: user.id,
+            account_id: rt.account_id,
+            type: rt.type,
+            amount: rt.amount,
+            category: rt.category,
+            description: rt.description,
+            date: currentDate,
+            time: "00:00",
+          });
+
+          if (txError) throw txError;
+
+          const { error: balanceError } = await supabase
+            .from("accounts")
+            .update({ balance: nextBalance })
+            .eq("id", rt.account_id)
+            .eq("user_id", user.id);
+
+          if (balanceError) throw balanceError;
+
+          const upcoming = calculateNextOccurrence(currentDate, rt.frequency as RecurringTransaction["frequency"]);
+          currentDate = upcoming;
+
+          const stopAfterNext = rt.end_date && upcoming > rt.end_date;
+
+          const { error: updateError } = await supabase
+            .from("recurring_transactions")
+            .update({
+              last_processed: todayStr,
+              next_occurrence: upcoming,
+              is_active: stopAfterNext ? false : rt.is_active,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", rt.id)
+            .eq("user_id", user.id);
+
+          if (updateError) throw updateError;
+
+          if (stopAfterNext) {
+            break;
+          }
+        }
+      }
+
+      if ((dueTransactions || []).length > 0) {
+        await fetchRecurringTransactions();
+      }
+    } catch (error: any) {
+      console.error("Error processing recurring transactions:", error);
+      toast({
+        title: "Recurring processing failed",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  }, [calculateNextOccurrence, fetchRecurringTransactions, toast, user]);
 
   // Add recurring transaction
   const addRecurringTransaction = async (
@@ -219,9 +338,10 @@ export const useRecurringTransactions = () => {
 
   useEffect(() => {
     if (user) {
+      processDueRecurringTransactions();
       fetchRecurringTransactions();
     }
-  }, [user, fetchRecurringTransactions]);
+  }, [user, fetchRecurringTransactions, processDueRecurringTransactions]);
 
   return {
     recurringTransactions,
@@ -230,6 +350,7 @@ export const useRecurringTransactions = () => {
     updateRecurringTransaction,
     deleteRecurringTransaction,
     toggleRecurringTransaction,
+    processDueRecurringTransactions,
     refreshRecurringTransactions: fetchRecurringTransactions,
   };
 };
