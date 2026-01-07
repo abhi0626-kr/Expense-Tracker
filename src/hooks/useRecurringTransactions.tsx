@@ -285,6 +285,20 @@ export const useRecurringTransactions = () => {
     if (!user) return;
 
     try {
+      // Get the transaction being deleted
+      const { data: txToDelete, error: fetchError } = await supabase
+        .from("recurring_transactions")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Check if this is a transfer (Transfer Out or Transfer In)
+      const isTransfer = txToDelete.category === "Transfer Out" || txToDelete.category === "Transfer In";
+      
+      // Delete the main transaction
       const { error } = await supabase
         .from("recurring_transactions")
         .delete()
@@ -293,10 +307,31 @@ export const useRecurringTransactions = () => {
 
       if (error) throw error;
 
+      // If it's a transfer, find and delete the paired transaction
+      if (isTransfer) {
+        const pairedCategory = txToDelete.category === "Transfer Out" ? "Transfer In" : "Transfer Out";
+        const { data: pairedTx } = await supabase
+          .from("recurring_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("amount", txToDelete.amount)
+          .eq("category", pairedCategory)
+          .eq("frequency", txToDelete.frequency)
+          .eq("start_date", txToDelete.start_date);
+
+        if (pairedTx && pairedTx.length > 0) {
+          await supabase
+            .from("recurring_transactions")
+            .delete()
+            .eq("id", pairedTx[0].id)
+            .eq("user_id", user.id);
+        }
+      }
+
       await fetchRecurringTransactions();
       toast({
         title: "Recurring transaction deleted",
-        description: "Your recurring transaction has been removed.",
+        description: isTransfer ? "Both transfer transactions have been removed." : "Your recurring transaction has been removed.",
       });
     } catch (error: any) {
       toast({
@@ -312,6 +347,20 @@ export const useRecurringTransactions = () => {
     if (!user) return;
 
     try {
+      // Get the transaction being toggled
+      const { data: txToToggle, error: fetchError } = await supabase
+        .from("recurring_transactions")
+        .select("*")
+        .eq("id", id)
+        .eq("user_id", user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      // Check if this is a transfer
+      const isTransfer = txToToggle.category === "Transfer Out" || txToToggle.category === "Transfer In";
+
+      // Toggle the main transaction
       const { error } = await supabase
         .from("recurring_transactions")
         .update({ is_active: isActive })
@@ -320,12 +369,33 @@ export const useRecurringTransactions = () => {
 
       if (error) throw error;
 
+      // If it's a transfer, find and toggle the paired transaction
+      if (isTransfer) {
+        const pairedCategory = txToToggle.category === "Transfer Out" ? "Transfer In" : "Transfer Out";
+        const { data: pairedTx } = await supabase
+          .from("recurring_transactions")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("amount", txToToggle.amount)
+          .eq("category", pairedCategory)
+          .eq("frequency", txToToggle.frequency)
+          .eq("start_date", txToToggle.start_date);
+
+        if (pairedTx && pairedTx.length > 0) {
+          await supabase
+            .from("recurring_transactions")
+            .update({ is_active: isActive })
+            .eq("id", pairedTx[0].id)
+            .eq("user_id", user.id);
+        }
+      }
+
       await fetchRecurringTransactions();
       toast({
         title: isActive ? "Recurring transaction activated" : "Recurring transaction paused",
         description: isActive
-          ? "Your recurring transaction is now active."
-          : "Your recurring transaction has been paused.",
+          ? (isTransfer ? "Both transfer transactions are now active." : "Your recurring transaction is now active.")
+          : (isTransfer ? "Both transfer transactions have been paused." : "Your recurring transaction has been paused."),
       });
     } catch (error: any) {
       toast({
