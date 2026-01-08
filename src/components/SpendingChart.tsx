@@ -76,22 +76,23 @@ export const SpendingChart = ({ transactions }: SpendingChartProps) => {
   const hasData = incomeData.length > 0 || expenseData.length > 0;
 
   return (
-    <Card className="bg-gradient-card shadow-card-shadow">
+    <Card className="bg-gradient-card shadow-card-shadow h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-foreground">
           Income & Expenses by Category
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {!hasData ? (
           <p className="text-muted-foreground text-center py-8">No transactions to display</p>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
             {/* Income Chart */}
             {incomeData.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 h-full">
                 <h3 className="text-sm font-medium text-success text-center">Income</h3>
-                <ResponsiveContainer width="100%" height={250}>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={incomeData}
@@ -118,15 +119,17 @@ export const SpendingChart = ({ transactions }: SpendingChartProps) => {
                       )}
                     />
                   </PieChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
 
             {/* Expense Chart */}
             {expenseData.length > 0 && (
-              <div className="space-y-2">
+              <div className="space-y-2 h-full">
                 <h3 className="text-sm font-medium text-destructive text-center">Expenses</h3>
-                <ResponsiveContainer width="100%" height={250}>
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={expenseData}
@@ -153,7 +156,8 @@ export const SpendingChart = ({ transactions }: SpendingChartProps) => {
                       )}
                     />
                   </PieChart>
-                </ResponsiveContainer>
+                  </ResponsiveContainer>
+                </div>
               </div>
             )}
           </div>

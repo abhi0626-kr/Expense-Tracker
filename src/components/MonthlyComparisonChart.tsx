@@ -37,61 +37,63 @@ export const MonthlyComparisonChart = ({ transactions }: MonthlyComparisonChartP
   });
 
   return (
-    <Card className="bg-gradient-card shadow-card-shadow">
+    <Card className="bg-gradient-card shadow-card-shadow h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-foreground">
           Monthly Financial Overview (Last 6 Months)
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {monthlyData.every((d) => d.expenses === 0 && d.income === 0) ? (
           <p className="text-muted-foreground text-center py-8">No transaction data to display</p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="month" 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-                formatter={(value: number) => `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
-              />
-              <Legend wrapperStyle={{ color: "hsl(var(--foreground))" }} />
-              <Bar 
-                dataKey="income" 
-                fill="hsl(var(--success))"
-                radius={[4, 4, 0, 0]}
-                name="Income"
-              />
-              <Bar 
-                dataKey="expenses" 
-                fill="hsl(var(--destructive))"
-                radius={[4, 4, 0, 0]}
-                name="Expenses"
-              />
-              <Bar 
-                dataKey="net" 
-                fill="hsl(var(--primary))"
-                radius={[4, 4, 0, 0]}
-                name="Net (Income - Expenses)"
-              />
-            </BarChart>
-          </ResponsiveContainer>
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={monthlyData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="month" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                  labelStyle={{ color: "hsl(var(--foreground))" }}
+                  formatter={(value: number) => `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                />
+                <Legend wrapperStyle={{ color: "hsl(var(--foreground))" }} />
+                <Bar 
+                  dataKey="income" 
+                  fill="hsl(var(--success))"
+                  radius={[4, 4, 0, 0]}
+                  name="Income"
+                />
+                <Bar 
+                  dataKey="expenses" 
+                  fill="hsl(var(--destructive))"
+                  radius={[4, 4, 0, 0]}
+                  name="Expenses"
+                />
+                <Bar 
+                  dataKey="net" 
+                  fill="hsl(var(--primary))"
+                  radius={[4, 4, 0, 0]}
+                  name="Net (Income - Expenses)"
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </CardContent>
     </Card>

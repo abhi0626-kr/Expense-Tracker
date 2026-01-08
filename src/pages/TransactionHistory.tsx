@@ -265,12 +265,12 @@ const TransactionHistory = () => {
                         </div>
                         
                         <div className="space-y-1 min-w-0 flex-1">
-                          <p className="font-medium text-foreground truncate">{renderDescription(displayTx, accountLookup)}</p>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <CategoryBadge category={meta.isTransfer ? meta.typeLabel : transaction.category} />
-                            <span className="text-xs text-muted-foreground whitespace-nowrap">
-                              {formattedDate}
-                            </span>
+                          <p className="font-medium text-foreground truncate">
+                            {meta.isTransfer ? meta.typeLabel : transaction.category}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                            <span className="truncate">{renderDescription(displayTx, accountLookup)}</span>
+                            <span className="whitespace-nowrap">• {formattedDate}</span>
                           </div>
                         </div>
                       </div>

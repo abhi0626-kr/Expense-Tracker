@@ -42,62 +42,64 @@ export const SpendingTrendChart = ({ transactions }: SpendingTrendChartProps) =>
   }));
 
   return (
-    <Card className="bg-gradient-card shadow-card-shadow">
+    <Card className="bg-gradient-card shadow-card-shadow h-full flex flex-col">
       <CardHeader>
         <CardTitle className="text-lg font-semibold text-foreground">
           Income vs Expenses Trend (Last 30 Days)
         </CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {chartData.every((d) => d.Expenses === 0 && d.Income === 0) ? (
           <p className="text-muted-foreground text-center py-8">No transaction data to display</p>
         ) : (
-          <ResponsiveContainer width="100%" height={300}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis 
-                dataKey="date" 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-              />
-              <YAxis 
-                stroke="hsl(var(--muted-foreground))"
-                fontSize={12}
-                tickLine={false}
-                tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: "hsl(var(--card))",
-                  border: "1px solid hsl(var(--border))",
-                  borderRadius: "var(--radius)",
-                }}
-                labelStyle={{ color: "hsl(var(--foreground))" }}
-                formatter={(value: number) => `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
-              />
-              <Legend 
-                wrapperStyle={{ color: "hsl(var(--foreground))" }}
-                iconType="line"
-              />
-              <Line
-                type="monotone"
-                dataKey="Income"
-                stroke="hsl(var(--success))"
-                strokeWidth={2}
-                dot={{ fill: "hsl(var(--success))", r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-              <Line
-                type="monotone"
-                dataKey="Expenses"
-                stroke="hsl(var(--destructive))"
-                strokeWidth={2}
-                dot={{ fill: "hsl(var(--destructive))", r: 3 }}
-                activeDot={{ r: 5 }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <div className="h-[320px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={chartData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="date" 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                />
+                <YAxis 
+                  stroke="hsl(var(--muted-foreground))"
+                  fontSize={12}
+                  tickLine={false}
+                  tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
+                />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    borderRadius: "var(--radius)",
+                  }}
+                  labelStyle={{ color: "hsl(var(--foreground))" }}
+                  formatter={(value: number) => `₹${value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`}
+                />
+                <Legend 
+                  wrapperStyle={{ color: "hsl(var(--foreground))" }}
+                  iconType="line"
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Income"
+                  stroke="hsl(var(--success))"
+                  strokeWidth={2}
+                  dot={{ fill: "hsl(var(--success))", r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="Expenses"
+                  stroke="hsl(var(--destructive))"
+                  strokeWidth={2}
+                  dot={{ fill: "hsl(var(--destructive))", r: 3 }}
+                  activeDot={{ r: 5 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
         )}
       </CardContent>
     </Card>

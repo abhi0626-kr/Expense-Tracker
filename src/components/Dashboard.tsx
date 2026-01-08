@@ -311,31 +311,31 @@ const Dashboard = () => {
         </div>
 
         {/* Trend Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <div data-tour="spending-trend">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
+          <div data-tour="spending-trend" className="h-full">
             <SpendingTrendChart transactions={transactions} />
           </div>
-          <div data-tour="category-trend">
+          <div data-tour="category-trend" className="h-full">
             <CategoryTrendChart transactions={transactions} />
           </div>
         </div>
 
         {/* Comparison Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <div data-tour="weekly-comparison">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
+          <div data-tour="weekly-comparison" className="h-full">
             <WeeklyComparisonChart transactions={transactions} />
           </div>
-          <div data-tour="monthly-comparison">
+          <div data-tour="monthly-comparison" className="h-full">
             <MonthlyComparisonChart transactions={transactions} />
           </div>
         </div>
 
         {/* Charts and Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          <div data-tour="spending-chart">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
+          <div data-tour="spending-chart" className="h-full">
             <SpendingChart transactions={transactions} />
           </div>
-          <div data-tour="transaction-list">
+          <div data-tour="transaction-list" className="h-full">
             <TransactionList 
               transactions={transactions} 
               accounts={accounts}
