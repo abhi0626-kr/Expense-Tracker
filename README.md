@@ -1,12 +1,17 @@
-# Expense Tracker (React + TypeScript + Supabase)
+# 💰 Expense Tracker
 
-A modern expense tracker built with React 18, Vite, TypeScript, Tailwind (shadcn/ui), and Supabase for auth and data. Includes charts, accounts, transactions, exports, and Google OAuth. 
+A modern, full-featured expense tracking application built with React 18, TypeScript, and Supabase. Track your finances, manage multiple accounts, set budgets, monitor investments, and gain insights through powerful analytics.
 
-## Tech Stack
-- React 18 + Vite 5 (TypeScript)
-- Tailwind CSS + shadcn/ui components
-- Supabase (Auth, Postgres, Row Level Security)
-- Recharts for visualizations
+## ✨ Tech Stack
+- **Frontend**: React 18 + Vite 5 with TypeScript
+- **Styling**: Tailwind CSS + shadcn/ui component library
+- **Backend**: Supabase (Authentication, PostgreSQL, Row Level Security)
+- **Charts**: Recharts for data visualizations
+- **Forms**: React Hook Form + Zod validation
+- **State Management**: TanStack React Query
+- **PDF Export**: jsPDF + jsPDF-AutoTable
+- **Email**: EmailJS integration
+- **Security**: hCaptcha protection
 
 
 ## Features
@@ -58,51 +63,133 @@ A modern expense tracker built with React 18, Vite, TypeScript, Tailwind (shadcn
   - Import/Export data
   - Confirmation dialog for sign out
 
-## Getting Started
+## 🚀 Getting Started
 
-### 1) Install dependencies
+### Prerequisites
+- Node.js 18+ installed
+- Supabase account ([supabase.com](https://supabase.com))
+- (Optional) Google OAuth credentials
+- (Optional) hCaptcha account for CAPTCHA protection
+
+### 1) Clone and Install
 ```powershell
+# Clone the repository
+git clone <your-repo-url>
+cd Expense-Tracker
+
+# Install dependencies
 npm install
 ```
 
-### 2) Environment variables
-Create `.env` in the project root (already present) and set:
+### 2) Environment Setup
+Create a `.env` file in the project root with the following variables:
 ```dotenv
-VITE_SUPABASE_PROJECT_ID="<your-project-id>"
-VITE_SUPABASE_PUBLISHABLE_KEY="<your-anon-key>"
-VITE_SUPABASE_URL="https://<your-project-id>.supabase.co"
+# Supabase Configuration (Required)
+VITE_SUPABASE_PROJECT_ID="your-project-id"
+VITE_SUPABASE_PUBLISHABLE_KEY="your-anon-key"
+VITE_SUPABASE_URL="https://your-project-id.supabase.co"
 
-# Only if CAPTCHA is enabled in Supabase (Attack Protection)
-VITE_HCAPTCHA_SITE_KEY="<your-hcaptcha-site-key>"
+# hCaptcha (Optional - only if Attack Protection is enabled)
+VITE_HCAPTCHA_SITE_KEY="your-hcaptcha-site-key"
 ```
 
-### 3) Run the app
+### 3) Database Setup
+Run the Supabase migrations to set up your database schema:
 ```powershell
-npm run dev
+# Initialize Supabase CLI (if not already done)
+npx supabase init
+
+# Link to your project
+npx supabase link --project-ref your-project-id
+
+# Push migrations
+npx supabase db push
 ```
-The app starts on the Vite dev server.
+See [MIGRATION_SETUP.md](MIGRATION_SETUP.md) for detailed migration instructions.
 
-## Supabase Configuration
+### 4) Run the Application
+```powershell
+# Development mode
+npm run dev
 
-### Auth Providers
-- Email/Password: Settings → Auth → Providers → Email
-  - If you want email confirmation: enable "Confirm email" and configure SMTP
-  - If you do NOT want email confirmation: disable "Confirm email"
-- Google OAuth: Settings → Auth → Providers → Google (set client id/secret)
+# Build for production
+npm run build
 
-### SMTP (optional but recommended for confirmations)
-Settings → Project Settings → Authentication → SMTP Settings:
-- Host: e.g. `smtp.gmail.com` (Port `587`)
-- Username: your sender email
-- Password: app password/API key from your provider
-- Sender email/name: what recipients see
+# Preview production build
+npm run preview
+```
+The app will start on `http://localhost:5173` (or another port if 5173 is in use).
 
-### CAPTCHA (hCaptcha)
-Settings → Auth → Attack Protection:
-- Enable Captcha protection = ON
-- Provider = hCaptcha
-- Paste your hCaptcha Secret in Supabase, and set `VITE_HCAPTCHA_SITE_KEY` in `.env`
-- If you prefer not to use CAPTCHA, turn it OFF
+## ⚙️ Configuration
+
+### Supabase Setup
+
+#### Auth Providers
+**Email/Password Authentication:**
+- Navigate to: Supabase Dashboard → Authentication → Providers → Email
+- Enable Email provider
+- **Email Confirmation** (Recommended): Enable "Confirm email" and configure SMTP (see below)
+- **Without Email Confirmation**: Disable "Confirm email" for testing/development
+
+**Google OAuth:**
+- See [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md) for complete setup instructions
+- Navigate to: Supabase Dashboard → Authentication → Providers → Google
+- Set Client ID and Client Secret from Google Cloud Console
+- Configure authorized redirect URIs
+
+#### Email Configuration
+Choose one of the following methods for email functionality:
+
+1. **Supabase SMTP** (Recommended for production)
+   - See [SUPABASE_EMAIL_SETUP.md](SUPABASE_EMAIL_SETUP.md) for detailed instructions
+   📚 Additional Documentation
+
+This project includes several detailed setup guides:
+
+- **[GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md)** - Complete Google OAuth configuration
+- **[SUPABASE_EMAIL_SETUP.md](SUPABASE_EMAIL_SETUP.md)** - Supabase SMTP email setup
+- **[EMAILJS_SETUP.md](EMAILJS_SETUP.md)** - EmailJS integration guide
+- **[EMAIL_SETUP_GUIDE.md](EMAIL_SETUP_GUIDE.md)** - General email configuration
+- **[EMAIL_LOGO_SETUP.md](EMAIL_LOGO_SETUP.md)** - Custom email logo setup
+- **[MIGRATION_SETUP.md](MIGRATION_SETUP.md)** - Database migration instructions
+- **[ONBOARDING_TOUR_GUIDE.md](ONBOARDING_TOUR_GUIDE.md)** - User onboarding implementation
+
+## 💻 Development Notes
+
+### Default Accounts
+- Default accounts (Checking, Savings, Credit) are automatically created on first login
+- Logic implemented in `src/hooks/useExpenseData.tsx`
+- Duplicate prevention: checks for existing accounts before insertion
+
+### Transfer Transactions
+- Transfer In/Out pairs are automatically grouped in the UI
+- Displayed as single unified entries for better clarity
+- Deleting a transfer removes both sides automatically
+- Shows clear "From → To" account flow
+
+### Transaction Details
+- Click any transaction to view full details
+- Shows date, time, amount, type, account, and description
+- Smart formatting based on transaction type
+
+### Code Organization
+- **Components**: Reusable UI components in `src/components/`
+- **Pages**: Route-level components in `src/pages/`
+- **Hooks**: Custom React hooks for data and state management
+- **Utils**: Utility functions and helpers
+- **Integrations**: External service integrations (Supabase)
+
+### Supabase Edge Functions
+- VS Code configured for Deno imports (see `.vscode/settings.json`)
+- Functions located in `supabase/functions/`
+- Use `deno.json` for Deno-specific configuration
+#### CAPTCHA Protection (Optional)
+- Navigate to: Settings → Authentication → Attack Protection
+- Enable Captcha protection: ON
+- Provider: hCaptcha
+- Add your hCaptcha Secret in Supabase Dashboard
+- Set `VITE_HCAPTCHA_SITE_KEY` in your `.env` file
+- For development without CAPTCHA, set this to OFF
 
 ## Development Notes
 - Default accounts are created on first login in `src/hooks/useExpenseData.tsx`.
@@ -135,20 +222,48 @@ Expense-Tracker/
 ├── receipt-scanner-api/ # Python Flask API for OCR
 └── supabase/           # Supabase migrations and functions
 ```
+📜 Available Scripts
 
-## Common Issues & Fixes
-- **Google OAuth not working**:
-  - Check browser console for error messages
-  - Verify Google provider is enabled in Supabase Dashboard → Auth → Providers → Google
-  - Ensure Client ID and Client Secret are correctly configured in Supabase
-  - Verify redirect URI in Google Cloud Console: `https://rkkvplagwdvlmymmdjkz.supabase.co/auth/v1/callback`
-  - Add your local development URL (`http://localhost:5173`) to Authorized JavaScript origins in Google Cloud Console
-  - See [GOOGLE_OAUTH_SETUP.md](GOOGLE_OAUTH_SETUP.md) for detailed setup instructions
-  
-- CAPTCHA error `sitekey-secret-mismatch`:
-  - Ensure `.env` `VITE_HCAPTCHA_SITE_KEY` matches the "Site Key" in hCaptcha dashboard
-  - Ensure Supabase Attack Protection has the matching "Secret" from hCaptcha
-  
+```powershell
+# Start development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Build for development (with dev mode settings)
+npm run build:dev
+
+# Preview production build
+npm run preview
+
+# Run ESLint
+npm run lint
+```
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## 🐛 Known Issues & Troubleshooting
+
+For detailed troubleshooting, see the "Common Issues & Fixes" section above. If you encounter issues not covered in the documentation:
+
+1. Check Supabase logs: Dashboard → Logs
+2. Review browser console for client-side errors
+3. Verify all environment variables are correctly set
+4. Ensure Supabase migrations are up to date
+5. Check that all required Supabase policies are in place
+
+## 📄 License
+
+This project is for educational and demonstration purposes. Feel free to use it as a template for your own projects. If you intend to distribute or use commercially, please add an appropriate licens
 - Email not received:
   - Check spam; verify SMTP is configured; or disable "Confirm email"
   
