@@ -419,11 +419,17 @@ export const useExpenseData = () => {
     fromAccountId: string,
     toAccountId: string,
     amount: number,
-    description: string
+    description: string,
+    date?: string,
+    time?: string
   ) => {
     if (!user) return;
 
     try {
+      const now = new Date();
+      const finalDate = date || now.toISOString().split('T')[0];
+      const finalTime = time || now.toTimeString().split(' ')[0].substring(0, 5);
+
       // Get both accounts
       const fromAccount = accounts.find(a => a.id === fromAccountId);
       const toAccount = accounts.find(a => a.id === toAccountId);
@@ -462,8 +468,8 @@ export const useExpenseData = () => {
           amount: -amount,
           category: "Transfer Out",
           description: description || `Transfer to ${toAccount.name}`,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0].substring(0, 5)
+          date: finalDate,
+          time: finalTime
         })
         .select()
         .single();
@@ -480,8 +486,8 @@ export const useExpenseData = () => {
           amount: amount,
           category: "Transfer In",
           description: description || `Transfer from ${fromAccount.name}`,
-          date: new Date().toISOString().split('T')[0],
-          time: new Date().toTimeString().split(' ')[0].substring(0, 5)
+          date: finalDate,
+          time: finalTime
         })
         .select()
         .single();

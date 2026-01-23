@@ -23,7 +23,7 @@ interface TransferFundsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   accounts: Account[];
-  onTransfer: (fromAccountId: string, toAccountId: string, amount: number, description: string) => Promise<void>;
+  onTransfer: (fromAccountId: string, toAccountId: string, amount: number, description: string, date: string, time: string) => Promise<void>;
 }
 
 export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: TransferFundsProps) => {
@@ -31,6 +31,8 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
   const [toAccountId, setToAccountId] = useState("");
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
+  const [time, setTime] = useState(new Date().toTimeString().split(' ')[0].substring(0, 5));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Deduplicate by name to avoid repeated entries if duplicates exist in DB
@@ -46,7 +48,7 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!fromAccountId || !toAccountId || !amount) {
+    if (!fromAccountId || !toAccountId || !amount || !date || !time) {
       return;
     }
 
@@ -63,12 +65,14 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
 
     setIsSubmitting(true);
     try {
-      await onTransfer(fromAccountId, toAccountId, numAmount, description);
+      await onTransfer(fromAccountId, toAccountId, numAmount, description, date, time);
       // Reset form
       setFromAccountId("");
       setToAccountId("");
       setAmount("");
       setDescription("");
+      setDate(new Date().toISOString().split('T')[0]);
+      setTime(new Date().toTimeString().split(' ')[0].substring(0, 5));
       onOpenChange(false);
     } finally {
       setIsSubmitting(false);
@@ -140,6 +144,28 @@ export const TransferFunds = ({ open, onOpenChange, accounts, onTransfer }: Tran
                 placeholder="Transfer notes..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="transfer-date">Date</Label>
+              <Input
+                id="transfer-date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="transfer-time">Time</Label>
+              <Input
+                id="transfer-time"
+                type="time"
+                value={time}
+                onChange={(e) => setTime(e.target.value)}
+                required
               />
             </div>
           </div>

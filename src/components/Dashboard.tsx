@@ -106,9 +106,11 @@ const Dashboard = () => {
     fromAccountId: string,
     toAccountId: string,
     amount: number,
-    description: string
+    description: string,
+    date: string,
+    time: string
   ) => {
-    await transferFunds(fromAccountId, toAccountId, amount, description);
+    await transferFunds(fromAccountId, toAccountId, amount, description, date, time);
   };
 
   const handleSignOut = async () => {
