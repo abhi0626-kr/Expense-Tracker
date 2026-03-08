@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -6,15 +6,20 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Account, Transaction } from "@/hooks/useExpenseData";
+import { Account, TransactionInput } from "@/hooks/useExpenseData";
 import { XIcon, EditIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCategories, DEFAULT_CATEGORIES } from "@/hooks/useCategories";
 
 interface AddTransactionProps {
   accounts: Account[];
-  onAddTransaction: (transaction: Omit<Transaction, "id">) => void;
+  onAddTransaction: (transaction: TransactionInput) => Promise<boolean | void> | boolean | void;
   onClose: () => void;
+}
+
+interface SplitFormItem {
+  accountId: string;
+  amount: string;
 }
 
 export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTransactionProps) => {
@@ -33,6 +38,11 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
   const [customCategory, setCustomCategory] = useState("");
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [splitAllocations, setSplitAllocations] = useState<SplitFormItem[]>([
+    { accountId: "", amount: "" },
+    { accountId: "", amount: "" }
+  ]);
 
   // Get categories from the database based on transaction type
   const categoryNames = useMemo(() => {
@@ -115,13 +125,82 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     // Check if category or custom category is filled
     const categoryFilled = formData.category || customCategory.trim();
     
-    if (!formData.accountId || !formData.type || !formData.amount || !categoryFilled || !formData.description) {
+    if (!formData.type || !formData.amount || !categoryFilled || !formData.description) {
       toast({
         title: "Missing Fields",
         description: "Please fill in all required fields",
         variant: "destructive"
       });
       return;
+    }
+
+    if (!isSplitPayment && !formData.accountId) {
+      toast({
+        title: "Missing Account",
+        description: "Please select an account",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const totalAmount = parseFloat(formData.amount);
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      toast({
+        title: "Invalid Amount",
+        description: "Please enter a valid total amount",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    let splitPayload: { account_id: string; amount: number }[] | undefined = undefined;
+
+    if (isSplitPayment) {
+      if (splitAllocations.length < 2) {
+        toast({
+          title: "Split Payment Needs Two Accounts",
+          description: "Add at least two payment sources",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const parsed = splitAllocations.map((allocation) => ({
+        account_id: allocation.accountId,
+        amount: parseFloat(allocation.amount)
+      }));
+
+      const hasInvalidRow = parsed.some(item => !item.account_id || isNaN(item.amount) || item.amount <= 0);
+      if (hasInvalidRow) {
+        toast({
+          title: "Invalid Split Rows",
+          description: "Each split row needs a valid account and amount",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const duplicateAccounts = new Set(parsed.map(item => item.account_id)).size !== parsed.length;
+      if (duplicateAccounts) {
+        toast({
+          title: "Duplicate Accounts",
+          description: "Use each account only once in split payment",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const splitSum = parsed.reduce((sum, item) => sum + item.amount, 0);
+      if (Math.abs(splitSum - totalAmount) > 0.01) {
+        toast({
+          title: "Split Total Mismatch",
+          description: "Split amounts must equal the total amount",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      splitPayload = parsed;
     }
 
     // If using custom category, save it first
@@ -132,15 +211,20 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       finalCategory = customCategory.trim();
     }
 
-    onAddTransaction({
-      account_id: formData.accountId,
+    const saveResult = await onAddTransaction({
+      account_id: isSplitPayment ? splitPayload![0].account_id : formData.accountId,
       type: formData.type,
-      amount: parseFloat(formData.amount),
+      amount: totalAmount,
       category: finalCategory,
       description: formData.description,
       date: formData.date,
-      time: formData.time
+      time: formData.time,
+      split_allocations: splitPayload
     });
+
+    if (saveResult === false) {
+      return;
+    }
 
     toast({
       title: "Success",
@@ -159,6 +243,11 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     });
     setCustomCategory("");
     setEditMode(false);
+    setIsSplitPayment(false);
+    setSplitAllocations([
+      { accountId: "", amount: "" },
+      { accountId: "", amount: "" }
+    ]);
   };
 
   // Show each account name only once to avoid duplicates in the dropdown
@@ -171,9 +260,53 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     return Array.from(byName.values());
   }, [accounts]);
 
+  const updateSplitRow = (index: number, next: Partial<SplitFormItem>) => {
+    setSplitAllocations((current) =>
+      current.map((row, i) => (i === index ? { ...row, ...next } : row))
+    );
+  };
+
+  const addSplitRow = () => {
+    setSplitAllocations((current) => [...current, { accountId: "", amount: "" }]);
+  };
+
+  const removeSplitRow = (index: number) => {
+    setSplitAllocations((current) => {
+      if (current.length <= 2) return current;
+      return current.filter((_, i) => i !== index);
+    });
+  };
+
+  const splitSum = splitAllocations.reduce((sum, row) => {
+    const amount = parseFloat(row.amount);
+    return sum + (isNaN(amount) ? 0 : amount);
+  }, 0);
+
+  const normalizedSplitSum = Math.round((splitSum + Number.EPSILON) * 100) / 100;
+  const enteredAmount = parseFloat(formData.amount);
+  const normalizedEnteredAmount = isNaN(enteredAmount)
+    ? 0
+    : Math.round((enteredAmount + Number.EPSILON) * 100) / 100;
+  const remainingAmount = Math.round(((normalizedEnteredAmount - normalizedSplitSum) + Number.EPSILON) * 100) / 100;
+
+  useEffect(() => {
+    if (!isSplitPayment) return;
+
+    const nextAmount = normalizedSplitSum > 0 ? normalizedSplitSum.toFixed(2) : "";
+    setFormData((prev) => (prev.amount === nextAmount ? prev : { ...prev, amount: nextAmount }));
+  }, [isSplitPayment, normalizedSplitSum]);
+
+  const canSubmit =
+    !!formData.type &&
+    !!formData.amount &&
+    (!!formData.category || !!customCategory) &&
+    !!formData.description &&
+    (isSplitPayment || !!formData.accountId);
+
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-      <Card className="w-full max-w-md bg-card shadow-financial">
+    <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto">
+      <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-4">
+      <Card className="w-full max-w-md bg-card shadow-financial max-h-[92dvh] flex flex-col">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
           <CardTitle className="text-xl font-semibold text-foreground">
             Add Transaction
@@ -188,13 +321,14 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
           </Button>
         </CardHeader>
         
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+        <CardContent className="overflow-y-auto">
+          <form id="add-transaction-form" onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="account">Account</Label>
               <Select 
                 value={formData.accountId} 
                 onValueChange={(value) => setFormData({ ...formData, accountId: value })}
+                disabled={isSplitPayment}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select an account" />
@@ -207,6 +341,73 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-3 rounded-md border border-border p-3">
+              <div className="flex items-center justify-between gap-3">
+                <Label htmlFor="split-payment">Split Payment</Label>
+                <Button
+                  id="split-payment"
+                  type="button"
+                  variant={isSplitPayment ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsSplitPayment((prev) => !prev)}
+                >
+                  {isSplitPayment ? "Enabled" : "Enable"}
+                </Button>
+              </div>
+              {isSplitPayment && (
+                <div className="space-y-2">
+                  {splitAllocations.map((row, index) => (
+                    <div key={index} className="grid grid-cols-[1fr_110px_auto] gap-2 items-center">
+                      <Select
+                        value={row.accountId}
+                        onValueChange={(value) => updateSplitRow(index, { accountId: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {uniqueAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        placeholder="0.00"
+                        value={row.amount}
+                        onChange={(e) => updateSplitRow(index, { amount: e.target.value })}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSplitRow(index)}
+                        disabled={splitAllocations.length <= 2}
+                        title="Remove row"
+                      >
+                        <Trash2Icon className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={addSplitRow}>
+                      <PlusIcon className="w-4 h-4 mr-1" />
+                      Add Source
+                    </Button>
+                    <div className="text-right text-xs text-muted-foreground">
+                      <p>Split Total: ₹{normalizedSplitSum.toFixed(2)}</p>
+                      <p className={remainingAmount === 0 ? "text-success" : "text-warning"}>
+                        Remaining: ₹{remainingAmount.toFixed(2)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -235,7 +436,11 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                 placeholder="0.00"
                 value={formData.amount}
                 onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                disabled={isSplitPayment}
               />
+              {isSplitPayment && (
+                <p className="text-xs text-muted-foreground">Amount is auto-filled from split rows.</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -370,27 +575,30 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
                 onChange={(e) => setFormData({ ...formData, time: e.target.value })}
               />
             </div>
-
-            <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onClose} 
-                className="flex-1 border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground"
-              >
-                Cancel
-              </Button>
-              <Button 
-                type="submit" 
-                className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-financial"
-                disabled={!formData.accountId || !formData.type || !formData.amount || (!formData.category && !customCategory) || !formData.description}
-              >
-                Add Transaction
-              </Button>
-            </div>
           </form>
         </CardContent>
+        <div className="sticky bottom-0 bg-card border-t border-border p-4">
+          <div className="flex gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose} 
+              className="flex-1 border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="add-transaction-form"
+              className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-financial"
+              disabled={!canSubmit}
+            >
+              Add Transaction
+            </Button>
+          </div>
+        </div>
       </Card>
+      </div>
     </div>
   );
 };

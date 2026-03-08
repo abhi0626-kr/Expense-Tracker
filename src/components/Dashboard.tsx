@@ -30,7 +30,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { OnboardingTour } from "./OnboardingTour";
 import { WelcomeDialog } from "./WelcomeDialog";
 import { useAuth } from "@/hooks/useAuth";
-import { useExpenseData, Account, Transaction } from "@/hooks/useExpenseData";
+import { useExpenseData, Account, TransactionInput } from "@/hooks/useExpenseData";
 import { useBudgets } from "@/hooks/useBudgets";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { dashboardTourSteps } from "@/utils/tourSteps";
@@ -88,9 +88,12 @@ const Dashboard = () => {
     .filter(t => t.type === "expense") 
     .reduce((sum, t) => sum + t.amount, 0);
 
-  const handleAddTransaction = async (transaction: Omit<Transaction, "id">) => {
-    await addTransaction(transaction);
-    setShowAddTransaction(false);
+  const handleAddTransaction = async (transaction: TransactionInput) => {
+    const success = await addTransaction(transaction);
+    if (success) {
+      setShowAddTransaction(false);
+    }
+    return success;
   };
 
   const handleDeleteTransaction = async (transactionId: string) => {

@@ -22,6 +22,15 @@ export interface Transaction {
   time: string;
 }
 
+export interface SplitAllocation {
+  account_id: string;
+  amount: number;
+}
+
+export interface TransactionInput extends Omit<Transaction, "id"> {
+  split_allocations?: SplitAllocation[];
+}
+
 export const useExpenseData = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -155,23 +164,29 @@ export const useExpenseData = () => {
   };
 
   // Add transaction
-  const addTransaction = async (transaction: Omit<Transaction, "id">) => {
-    if (!user) return;
+  const addTransaction = async (transaction: TransactionInput) => {
+    if (!user) return false;
 
     try {
-      const basePayload = {
-        user_id: user.id,
-        account_id: transaction.account_id,
-        type: transaction.type,
-        amount: transaction.amount,
-        category: transaction.category,
-        description: transaction.description,
-        date: transaction.date
-      };
-
       const desiredTime = transaction.time || "00:00";
 
-      const insertWithPayload = async (payload: typeof basePayload & { time?: string }) => {
+      const isSplitTransaction =
+        transaction.split_allocations !== undefined &&
+        transaction.split_allocations.length > 1;
+
+      const getBasePayload = (accountId: string, amount: number, description: string) => ({
+        user_id: user.id,
+        account_id: accountId,
+        type: transaction.type,
+        amount,
+        category: transaction.category,
+        description,
+        date: transaction.date
+      });
+
+      const insertWithPayload = async (
+        payload: ReturnType<typeof getBasePayload> & { time?: string }
+      ) => {
         return supabase
           .from("transactions")
           .insert(payload)
@@ -184,51 +199,132 @@ export const useExpenseData = () => {
         return message.includes("'time' column") || message.includes("column 'time'") || message.includes("time column");
       };
 
-      let { data: newTransaction, error } = await insertWithPayload({ ...basePayload, time: desiredTime });
+      const createdTransactions: any[] = [];
 
-      if (error && isMissingTimeColumn(error)) {
-        const shouldNotify = !timeColumnMissingRef.current;
-        timeColumnMissingRef.current = true;
-        const fallbackResult = await insertWithPayload(basePayload);
-        if (fallbackResult.error) {
-          throw fallbackResult.error;
+      if (isSplitTransaction) {
+        const splitAllocations = transaction.split_allocations || [];
+        const sum = splitAllocations.reduce((acc, item) => acc + item.amount, 0);
+        if (Math.abs(sum - transaction.amount) > 0.01) {
+          throw new Error("Split amounts must equal the total transaction amount.");
         }
-        newTransaction = fallbackResult.data;
-        if (shouldNotify) {
-          toast({
-            title: "Time column missing in database",
-            description: "Transaction saved without time. Apply the latest Supabase migrations to add the 'time' column.",
-            variant: "destructive",
+
+        const splitId =
+          typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+        const splitDescription = `${transaction.description} [split:${splitId}]`;
+
+        for (const item of splitAllocations) {
+          const account = accounts.find(a => a.id === item.account_id);
+          if (!account) {
+            throw new Error("One or more split accounts are invalid.");
+          }
+          if (transaction.type === "expense" && account.balance < item.amount) {
+            throw new Error(`Insufficient funds in ${account.name}.`);
+          }
+        }
+
+        for (const item of splitAllocations) {
+          const basePayload = getBasePayload(item.account_id, item.amount, splitDescription);
+          let { data, error } = await insertWithPayload({ ...basePayload, time: desiredTime });
+
+          if (error && isMissingTimeColumn(error)) {
+            const shouldNotify = !timeColumnMissingRef.current;
+            timeColumnMissingRef.current = true;
+            const fallbackResult = await insertWithPayload(basePayload);
+            if (fallbackResult.error) {
+              throw fallbackResult.error;
+            }
+            data = fallbackResult.data;
+            if (shouldNotify) {
+              toast({
+                title: "Time column missing in database",
+                description: "Transaction saved without time. Apply the latest Supabase migrations to add the 'time' column.",
+                variant: "destructive",
+              });
+            }
+          } else if (error) {
+            throw error;
+          }
+
+          if (data) {
+            createdTransactions.push(data);
+          }
+
+          const account = accounts.find(a => a.id === item.account_id);
+          if (account) {
+            const balanceChange = transaction.type === "income" ? item.amount : -item.amount;
+            const newBalance = account.balance + balanceChange;
+            const { error: updateError } = await supabase
+              .from("accounts")
+              .update({ balance: newBalance })
+              .eq("id", item.account_id);
+
+            if (updateError) throw updateError;
+          }
+        }
+
+        createdTransactions.forEach((createdTx) => {
+          supabase.functions.invoke("sync-to-sheets", {
+            body: { transaction: createdTx }
+          }).catch(error => {
+            console.error("Failed to sync split transaction to Google Sheets:", error);
+          });
+        });
+      } else {
+        const basePayload = getBasePayload(
+          transaction.account_id,
+          transaction.amount,
+          transaction.description
+        );
+
+        let { data: newTransaction, error } = await insertWithPayload({ ...basePayload, time: desiredTime });
+
+        if (error && isMissingTimeColumn(error)) {
+          const shouldNotify = !timeColumnMissingRef.current;
+          timeColumnMissingRef.current = true;
+          const fallbackResult = await insertWithPayload(basePayload);
+          if (fallbackResult.error) {
+            throw fallbackResult.error;
+          }
+          newTransaction = fallbackResult.data;
+          if (shouldNotify) {
+            toast({
+              title: "Time column missing in database",
+              description: "Transaction saved without time. Apply the latest Supabase migrations to add the 'time' column.",
+              variant: "destructive",
+            });
+          }
+        } else if (error) {
+          throw error;
+        }
+
+        // Update account balance
+        const account = accounts.find(a => a.id === transaction.account_id);
+        if (account) {
+          const balanceChange = transaction.type === "income" 
+            ? transaction.amount 
+            : -transaction.amount;
+          
+          const newBalance = account.balance + balanceChange;
+          
+          const { error: updateError } = await supabase
+            .from("accounts")
+            .update({ balance: newBalance })
+            .eq("id", transaction.account_id);
+
+          if (updateError) throw updateError;
+        }
+
+        // Sync to Google Sheets in the background
+        if (newTransaction) {
+          supabase.functions.invoke("sync-to-sheets", {
+            body: { transaction: newTransaction }
+          }).catch(error => {
+            console.error("Failed to sync to Google Sheets:", error);
           });
         }
-      } else if (error) {
-        throw error;
-      }
-
-      // Update account balance
-      const account = accounts.find(a => a.id === transaction.account_id);
-      if (account) {
-        const balanceChange = transaction.type === "income" 
-          ? transaction.amount 
-          : -transaction.amount;
-        
-        const newBalance = account.balance + balanceChange;
-        
-        const { error: updateError } = await supabase
-          .from("accounts")
-          .update({ balance: newBalance })
-          .eq("id", transaction.account_id);
-
-        if (updateError) throw updateError;
-      }
-
-      // Sync to Google Sheets in the background
-      if (newTransaction) {
-        supabase.functions.invoke("sync-to-sheets", {
-          body: { transaction: newTransaction }
-        }).catch(error => {
-          console.error("Failed to sync to Google Sheets:", error);
-        });
       }
 
       await fetchTransactions();
@@ -238,12 +334,14 @@ export const useExpenseData = () => {
         title: "Transaction added",
         description: "Your transaction has been successfully recorded.",
       });
+      return true;
     } catch (error: any) {
       toast({
         title: "Error adding transaction",
         description: error.message,
         variant: "destructive",
       });
+      return false;
     }
   };
 

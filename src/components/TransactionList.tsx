@@ -56,17 +56,22 @@ export const TransactionList = ({ transactions, accounts, onDeleteTransaction }:
 
   const getDisplayMeta = (display: DisplayTransaction) => {
     const transaction = display.transaction;
-    const isTransfer = transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer");
+    const splitAmount = getDisplayAmount(display);
+    const isSplit = isSplitDisplay(display);
+    const category = (transaction.category || "").toLowerCase();
+    const isTransfer = transaction.type === "transfer" || category.includes("transfer");
     const transferIsOut = isTransfer ? transaction.amount < 0 : false;
     const amountSign = isTransfer
       ? transferIsOut ? "-" : "+"
       : transaction.type === "income" ? "+" : "-";
-    const amountValue = isTransfer ? Math.abs(transaction.amount) : transaction.amount;
+    const amountValue = isTransfer ? Math.abs(transaction.amount) : splitAmount;
     const amountClass = isTransfer
       ? transferIsOut ? "text-destructive" : "text-success"
       : transaction.type === "income" ? "text-success" : "text-destructive";
     const typeLabel = isTransfer
       ? "Transfer"
+      : isSplit
+        ? "Split Payment"
       : transaction.type === "income" ? "Income" : "Expense";
 
     return { isTransfer, transferIsOut, amountSign, amountValue, amountClass, typeLabel };
@@ -80,6 +85,11 @@ export const TransactionList = ({ transactions, accounts, onDeleteTransaction }:
     await onDeleteTransaction(display.transaction.id);
     if (display.counterpart) {
       await onDeleteTransaction(display.counterpart.id);
+    }
+    if (display.splitParts) {
+      for (const splitPart of display.splitParts) {
+        await onDeleteTransaction(splitPart.id);
+      }
     }
   };
 
@@ -242,6 +252,11 @@ export const TransactionList = ({ transactions, accounts, onDeleteTransaction }:
                         <p className="text-foreground font-medium">{getAccountName(getToAccountId(selectedTransaction))}</p>
                       </div>
                     </>
+                  ) : isSplitDisplay(selectedTransaction) ? (
+                    <div className="sm:col-span-2">
+                      <p className="text-muted-foreground">Accounts</p>
+                      <p className="text-foreground font-medium">{getDisplayAccountNames(selectedTransaction, getAccountName)}</p>
+                    </div>
                   ) : (
                     <div>
                       <p className="text-muted-foreground">Account</p>
@@ -273,20 +288,40 @@ export const TransactionList = ({ transactions, accounts, onDeleteTransaction }:
 interface DisplayTransaction {
   transaction: Transaction;
   counterpart?: Transaction;
+  splitParts?: Transaction[];
 }
 
 const buildDisplayTransactions = (transactions: Transaction[]): DisplayTransaction[] => {
   const processed = new Set<string>();
   const result: DisplayTransaction[] = [];
+  const splitGroups = new Map<string, Transaction[]>();
+
+  transactions.forEach((tx) => {
+    const splitId = getSplitId(tx.description);
+    if (!splitId) return;
+    const existing = splitGroups.get(splitId) || [];
+    existing.push(tx);
+    splitGroups.set(splitId, existing);
+  });
 
   transactions.forEach((tx) => {
     if (processed.has(tx.id)) return;
 
-    if (tx.type === "transfer" || tx.category.toLowerCase().includes("transfer")) {
+    const splitId = getSplitId(tx.description);
+    if (splitId) {
+      const splitParts = (splitGroups.get(splitId) || []).filter((part) => part.id !== tx.id);
+      splitParts.forEach((part) => processed.add(part.id));
+      result.push({ transaction: tx, splitParts });
+      processed.add(tx.id);
+      return;
+    }
+
+    const category = (tx.category || "").toLowerCase();
+    if (tx.type === "transfer" || category.includes("transfer")) {
       const counterpart = transactions.find((other) =>
         other.id !== tx.id &&
         !processed.has(other.id) &&
-        (other.type === "transfer" || other.category.toLowerCase().includes("transfer")) &&
+        (other.type === "transfer" || (other.category || "").toLowerCase().includes("transfer")) &&
         Math.abs(other.amount) === Math.abs(tx.amount) &&
         new Date(other.date).toDateString() === new Date(tx.date).toDateString()
       );
@@ -327,11 +362,41 @@ const renderDescription = (
   display: DisplayTransaction,
   getAccountName: (id: string) => string
 ): string => {
-  const { transaction, counterpart } = display;
-  if (transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer")) {
+  const { transaction } = display;
+  const category = (transaction.category || "").toLowerCase();
+  if (transaction.type === "transfer" || category.includes("transfer")) {
     const from = getAccountName(getFromAccountId(display));
     const to = getAccountName(getToAccountId(display));
     return `Transfer: ${from} → ${to}`;
   }
-  return transaction.description.replace(/\s*\([^)]*\)\s*$/, "");
+  return stripMetaTags(transaction.description || "").replace(/\s*\([^)]*\)\s*$/, "");
+};
+
+const getSplitId = (description: string): string | null => {
+  const match = (description || "").match(/\[split:([a-z0-9-]+)\]\s*$/i);
+  return match ? match[1] : null;
+};
+
+const stripMetaTags = (description: string): string => {
+  return description.replace(/\s*\[split:[a-z0-9-]+\]\s*$/i, "").trim();
+};
+
+const isSplitDisplay = (display: DisplayTransaction): boolean => {
+  return !!display.splitParts && display.splitParts.length > 0;
+};
+
+const getDisplayAmount = (display: DisplayTransaction): number => {
+  if (!isSplitDisplay(display)) {
+    return display.transaction.amount;
+  }
+  return [display.transaction, ...(display.splitParts || [])].reduce((sum, tx) => sum + tx.amount, 0);
+};
+
+const getDisplayAccountNames = (
+  display: DisplayTransaction,
+  getAccountName: (id: string) => string
+): string => {
+  const rows = [display.transaction, ...(display.splitParts || [])];
+  const names = Array.from(new Set(rows.map((tx) => getAccountName(tx.account_id))));
+  return names.join(" + ");
 };

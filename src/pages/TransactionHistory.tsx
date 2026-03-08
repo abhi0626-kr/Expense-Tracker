@@ -1,13 +1,4 @@
-const formatTime12h = (time?: string) => {
-  if (!time) return "Not available";
-  const [hStr, m = "00"] = time.split(":");
-  const hNum = Number(hStr);
-  if (Number.isNaN(hNum)) return time;
-  const period = hNum >= 12 ? "PM" : "AM";
-  const hour12 = hNum % 12 === 0 ? 12 : hNum % 12;
-  return `${hour12.toString().padStart(2, "0")}:${m.padStart(2, "0")} ${period}`;
-};
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -43,6 +34,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+
+const formatTime12h = (time?: string) => {
+  if (!time) return "Not available";
+  const [hStr, m = "00"] = time.split(":");
+  const hNum = Number(hStr);
+  if (Number.isNaN(hNum)) return time;
+  const period = hNum >= 12 ? "PM" : "AM";
+  const hour12 = hNum % 12 === 0 ? 12 : hNum % 12;
+  return `${hour12.toString().padStart(2, "0")}:${m.padStart(2, "0")} ${period}`;
+};
 
 const TransactionHistory = () => {
   const navigate = useNavigate();
@@ -52,6 +54,8 @@ const TransactionHistory = () => {
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [selectedTransaction, setSelectedTransaction] = useState<DisplayTransaction | null>(null);
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedDisplayIds, setSelectedDisplayIds] = useState<string[]>([]);
 
   const accountLookup = useMemo(() => {
     const map: Record<string, string> = {};
@@ -63,17 +67,22 @@ const TransactionHistory = () => {
 
   const getDisplayMeta = (display: DisplayTransaction) => {
     const transaction = display.transaction;
-    const isTransfer = transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer");
+    const splitAmount = getDisplayAmount(display);
+    const isSplit = isSplitDisplay(display);
+    const category = (transaction.category || "").toLowerCase();
+    const isTransfer = transaction.type === "transfer" || category.includes("transfer");
     const transferIsOut = isTransfer ? transaction.amount < 0 : false;
     const amountSign = isTransfer
       ? transferIsOut ? "-" : "+"
       : transaction.type === "income" ? "+" : "-";
-    const amountValue = isTransfer ? Math.abs(transaction.amount) : transaction.amount;
+    const amountValue = isTransfer ? Math.abs(transaction.amount) : splitAmount;
     const amountClass = isTransfer
       ? transferIsOut ? "text-destructive" : "text-success"
       : transaction.type === "income" ? "text-success" : "text-destructive";
     const typeLabel = isTransfer
       ? "Transfer"
+      : isSplit
+        ? "Split Payment"
       : transaction.type === "income" ? "Income" : "Expense";
 
     return { isTransfer, amountSign, amountValue, amountClass, typeLabel };
@@ -85,7 +94,7 @@ const TransactionHistory = () => {
 
   const filteredTransactions = transactions
     .filter(t => {
-      const matchesSearch = t.description.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesSearch = stripMetaTags(t.description || "").toLowerCase().includes(searchQuery.toLowerCase());
       const matchesType = filterType === "all" || t.type === filterType;
       const matchesCategory = filterCategory === "all" || t.category === filterCategory;
       return matchesSearch && matchesType && matchesCategory;
@@ -93,6 +102,57 @@ const TransactionHistory = () => {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const displayTransactions = useMemo(() => buildDisplayTransactions(filteredTransactions), [filteredTransactions]);
+
+  useEffect(() => {
+    setSelectedDisplayIds((prev) =>
+      prev.filter((id) => displayTransactions.some((display) => display.transaction.id === id))
+    );
+  }, [displayTransactions]);
+
+  const selectedDisplayTransactions = useMemo(
+    () => displayTransactions.filter((display) => selectedDisplayIds.includes(display.transaction.id)),
+    [displayTransactions, selectedDisplayIds]
+  );
+
+  const allVisibleSelected =
+    displayTransactions.length > 0 && selectedDisplayIds.length === displayTransactions.length;
+
+  const toggleDisplaySelection = (displayId: string, checked: boolean) => {
+    setSelectedDisplayIds((prev) => {
+      if (checked) {
+        if (prev.includes(displayId)) return prev;
+        return [...prev, displayId];
+      }
+      return prev.filter((id) => id !== displayId);
+    });
+  };
+
+  const handleToggleSelectionMode = () => {
+    setSelectionMode((prev) => !prev);
+    setSelectedDisplayIds([]);
+  };
+
+  const handleSelectAllVisible = () => {
+    setSelectedDisplayIds(displayTransactions.map((display) => display.transaction.id));
+  };
+
+  const handleClearSelection = () => {
+    setSelectedDisplayIds([]);
+  };
+
+  const handleBulkDelete = async () => {
+    for (const display of selectedDisplayTransactions) {
+      await handleDelete(display, deleteTransaction);
+    }
+
+    toast({
+      title: "Transactions deleted",
+      description: `${selectedDisplayTransactions.length} transaction${selectedDisplayTransactions.length !== 1 ? "s" : ""} deleted successfully.`,
+    });
+
+    setSelectedDisplayIds([]);
+    setSelectionMode(false);
+  };
 
   const handleExportCSV = () => {
     if (filteredTransactions.length === 0) {
@@ -161,29 +221,38 @@ const TransactionHistory = () => {
               </div>
             </div>
             
-            {/* Export Dropdown */}
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
-                  disabled={filteredTransactions.length === 0}
-                >
-                  <DownloadIcon className="w-4 h-4 mr-2" />
-                  Export
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={handleExportCSV}>
-                  <FileSpreadsheetIcon className="w-4 h-4 mr-2" />
-                  Export as CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleExportPDF}>
-                  <FileTextIcon className="w-4 h-4 mr-2" />
-                  Export as PDF
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={selectionMode ? "default" : "outline"}
+                onClick={handleToggleSelectionMode}
+                disabled={displayTransactions.length === 0}
+              >
+                {selectionMode ? "Cancel Selection" : "Select"}
+              </Button>
+              {/* Export Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button 
+                    variant="outline" 
+                    className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    disabled={filteredTransactions.length === 0}
+                  >
+                    <DownloadIcon className="w-4 h-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportCSV}>
+                    <FileSpreadsheetIcon className="w-4 h-4 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPDF}>
+                    <FileTextIcon className="w-4 h-4 mr-2" />
+                    Export as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
           {/* Filters */}
@@ -227,9 +296,56 @@ const TransactionHistory = () => {
           {/* Transactions */}
           <Card className="bg-gradient-card shadow-card-shadow">
             <CardHeader>
-              <CardTitle className="text-lg font-semibold text-foreground">
-                {displayTransactions.length} Transaction{displayTransactions.length !== 1 ? 's' : ''}
-              </CardTitle>
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <CardTitle className="text-lg font-semibold text-foreground">
+                  {displayTransactions.length} Transaction{displayTransactions.length !== 1 ? 's' : ''}
+                </CardTitle>
+                {selectionMode && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={allVisibleSelected ? handleClearSelection : handleSelectAllVisible}
+                      disabled={displayTransactions.length === 0}
+                    >
+                      {allVisibleSelected ? "Clear" : "Select All"}
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {selectedDisplayIds.length} selected
+                    </span>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          size="sm"
+                          className="bg-destructive hover:bg-destructive/90"
+                          disabled={selectedDisplayIds.length === 0}
+                        >
+                          <TrashIcon className="w-4 h-4 mr-1" />
+                          Delete Selected
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Selected Transactions?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            {`You are about to delete ${selectedDisplayIds.length} selected transaction${selectedDisplayIds.length !== 1 ? "s" : ""}.`}
+                            <p className="mt-2 text-xs text-muted-foreground">This action cannot be undone.</p>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-destructive hover:bg-destructive/90"
+                            onClick={handleBulkDelete}
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                )}
+              </div>
             </CardHeader>
             <CardContent className="space-y-3">
               {displayTransactions.length === 0 ? (
@@ -249,9 +365,28 @@ const TransactionHistory = () => {
                     <div 
                       key={transaction.id} 
                       className="flex items-center justify-between p-3 md:p-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors gap-3 cursor-pointer"
-                      onClick={() => setSelectedTransaction(displayTx)}
+                      onClick={() => {
+                        if (selectionMode) {
+                          toggleDisplaySelection(
+                            displayTx.transaction.id,
+                            !selectedDisplayIds.includes(displayTx.transaction.id)
+                          );
+                          return;
+                        }
+                        setSelectedTransaction(displayTx);
+                      }}
                     >
                       <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {selectionMode && (
+                          <Checkbox
+                            checked={selectedDisplayIds.includes(displayTx.transaction.id)}
+                            onCheckedChange={(checked) =>
+                              toggleDisplaySelection(displayTx.transaction.id, checked === true)
+                            }
+                            onClick={(event) => event.stopPropagation()}
+                            aria-label="Select transaction"
+                          />
+                        )}
                         <div className={`p-2 rounded-full flex-shrink-0 ${
                           meta.amountSign === "+" 
                             ? "bg-success/20 text-success" 
@@ -288,6 +423,7 @@ const TransactionHistory = () => {
                               size="sm"
                               className="text-destructive hover:text-destructive hover:bg-destructive/10 h-8 w-8 p-0"
                               onClick={(event) => event.stopPropagation()}
+                              disabled={selectionMode}
                             >
                               <TrashIcon className="w-4 h-4" />
                             </Button>
@@ -373,6 +509,11 @@ const TransactionHistory = () => {
                             <p className="text-foreground font-medium">{accountLookup[getToAccountId(selectedTransaction)] || "Unknown account"}</p>
                           </div>
                         </>
+                      ) : isSplitDisplay(selectedTransaction) ? (
+                        <div className="sm:col-span-2">
+                          <p className="text-muted-foreground">Accounts</p>
+                          <p className="text-foreground font-medium">{getDisplayAccountNames(selectedTransaction, accountLookup)}</p>
+                        </div>
                       ) : (
                         <div>
                           <p className="text-muted-foreground">Account</p>
@@ -408,20 +549,40 @@ export default TransactionHistory;
 interface DisplayTransaction {
   transaction: Transaction;
   counterpart?: Transaction;
+  splitParts?: Transaction[];
 }
 
 function buildDisplayTransactions(transactions: Transaction[]): DisplayTransaction[] {
   const processed = new Set<string>();
   const result: DisplayTransaction[] = [];
+  const splitGroups = new Map<string, Transaction[]>();
+
+  transactions.forEach((tx) => {
+    const splitId = getSplitId(tx.description);
+    if (!splitId) return;
+    const existing = splitGroups.get(splitId) || [];
+    existing.push(tx);
+    splitGroups.set(splitId, existing);
+  });
 
   transactions.forEach((tx) => {
     if (processed.has(tx.id)) return;
 
-    if (tx.type === "transfer" || tx.category.toLowerCase().includes("transfer")) {
+    const splitId = getSplitId(tx.description);
+    if (splitId) {
+      const splitParts = (splitGroups.get(splitId) || []).filter((part) => part.id !== tx.id);
+      splitParts.forEach((part) => processed.add(part.id));
+      result.push({ transaction: tx, splitParts });
+      processed.add(tx.id);
+      return;
+    }
+
+    const category = (tx.category || "").toLowerCase();
+    if (tx.type === "transfer" || category.includes("transfer")) {
       const counterpart = transactions.find((other) =>
         other.id !== tx.id &&
         !processed.has(other.id) &&
-        (other.type === "transfer" || other.category.toLowerCase().includes("transfer")) &&
+        (other.type === "transfer" || (other.category || "").toLowerCase().includes("transfer")) &&
         Math.abs(other.amount) === Math.abs(tx.amount) &&
         new Date(other.date).toDateString() === new Date(tx.date).toDateString()
       );
@@ -463,12 +624,13 @@ function renderDescription(
   accountLookup: Record<string, string>
 ): string {
   const { transaction } = display;
-  if (transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer")) {
+  const category = (transaction.category || "").toLowerCase();
+  if (transaction.type === "transfer" || category.includes("transfer")) {
     const from = accountLookup[getFromAccountId(display)] || "Unknown account";
     const to = accountLookup[getToAccountId(display)] || "Unknown account";
     return `Transfer: ${from} → ${to}`;
   }
-  return transaction.description;
+  return stripMetaTags(transaction.description || "");
 }
 
 async function handleDelete(
@@ -479,4 +641,40 @@ async function handleDelete(
   if (display.counterpart) {
     await deleteTransactionFn(display.counterpart.id);
   }
+  if (display.splitParts) {
+    for (const splitPart of display.splitParts) {
+      await deleteTransactionFn(splitPart.id);
+    }
+  }
+}
+
+function getSplitId(description: string): string | null {
+  const match = (description || "").match(/\[split:([a-z0-9-]+)\]\s*$/i);
+  return match ? match[1] : null;
+}
+
+function stripMetaTags(description: string): string {
+  return description.replace(/\s*\[split:[a-z0-9-]+\]\s*$/i, "").trim();
+}
+
+function isSplitDisplay(display: DisplayTransaction): boolean {
+  return !!display.splitParts && display.splitParts.length > 0;
+}
+
+function getDisplayAmount(display: DisplayTransaction): number {
+  if (!isSplitDisplay(display)) {
+    return display.transaction.amount;
+  }
+  return [display.transaction, ...(display.splitParts || [])].reduce((sum, tx) => sum + tx.amount, 0);
+}
+
+function getDisplayAccountNames(
+  display: DisplayTransaction,
+  accountLookup: Record<string, string>
+): string {
+  const rows = [display.transaction, ...(display.splitParts || [])];
+  const names = Array.from(
+    new Set(rows.map((tx) => accountLookup[tx.account_id] || "Unknown account"))
+  );
+  return names.join(" + ");
 }
