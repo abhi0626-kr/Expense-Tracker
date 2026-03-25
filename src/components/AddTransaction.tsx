@@ -10,6 +10,8 @@ import { Account, TransactionInput } from "@/hooks/useExpenseData";
 import { XIcon, EditIcon, PlusIcon, Trash2Icon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCategories, DEFAULT_CATEGORIES } from "@/hooks/useCategories";
+import { parseSmartTransactionInput } from "@/utils/smartTransactionParser";
+import { parseTransactionWithAI } from "@/utils/aiTransactionParser";
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -22,23 +24,46 @@ interface SplitFormItem {
   amount: string;
 }
 
+interface AddTransactionDraft {
+  formData: {
+    accountId: string;
+    type: "income" | "expense" | "";
+    amount: string;
+    category: string;
+    description: string;
+    date: string;
+    time: string;
+  };
+  editMode: boolean;
+  customCategory: string;
+  isSplitPayment: boolean;
+  splitAllocations: SplitFormItem[];
+  smartInput: string;
+}
+
+const ADD_TRANSACTION_DRAFT_KEY = "expense-tracker:add-transaction-draft";
+
+const buildInitialFormData = () => ({
+  accountId: "",
+  type: "" as "income" | "expense" | "",
+  amount: "",
+  category: "",
+  description: "",
+  date: new Date().toISOString().split('T')[0],
+  time: new Date().toTimeString().split(' ')[0].substring(0, 5)
+});
+
 export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTransactionProps) => {
   const { toast } = useToast();
   const { getCategoriesByType, addCategory, deleteCategory, categories: allCategories } = useCategories();
-  const [formData, setFormData] = useState({
-    accountId: "",
-    type: "" as "income" | "expense" | "",
-    amount: "",
-    category: "",
-    description: "",
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().split(' ')[0].substring(0, 5)
-  });
+  const [formData, setFormData] = useState(buildInitialFormData());
   const [editMode, setEditMode] = useState(false);
   const [customCategory, setCustomCategory] = useState("");
   const [pendingDeleteCategory, setPendingDeleteCategory] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isSplitPayment, setIsSplitPayment] = useState(false);
+  const [smartInput, setSmartInput] = useState("");
+  const [isAiParsing, setIsAiParsing] = useState(false);
   const [splitAllocations, setSplitAllocations] = useState<SplitFormItem[]>([
     { accountId: "", amount: "" },
     { accountId: "", amount: "" }
@@ -232,22 +257,16 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
       variant: "default"
     });
 
-    setFormData({
-      accountId: "",
-      type: "" as "income" | "expense" | "",
-      amount: "",
-      category: "",
-      description: "",
-      date: new Date().toISOString().split('T')[0],
-      time: new Date().toTimeString().split(' ')[0].substring(0, 5)
-    });
+    setFormData(buildInitialFormData());
     setCustomCategory("");
     setEditMode(false);
     setIsSplitPayment(false);
+    setSmartInput("");
     setSplitAllocations([
       { accountId: "", amount: "" },
       { accountId: "", amount: "" }
     ]);
+    clearDraft();
   };
 
   // Show each account name only once to avoid duplicates in the dropdown
@@ -303,6 +322,129 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     !!formData.description &&
     (isSplitPayment || !!formData.accountId);
 
+  const clearDraft = () => {
+    localStorage.removeItem(ADD_TRANSACTION_DRAFT_KEY);
+  };
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(ADD_TRANSACTION_DRAFT_KEY);
+      if (!raw) return;
+
+      const saved = JSON.parse(raw) as AddTransactionDraft;
+      if (!saved || typeof saved !== "object") return;
+
+      if (saved.formData) {
+        setFormData(saved.formData);
+      }
+      setEditMode(!!saved.editMode);
+      setCustomCategory(saved.customCategory || "");
+      setIsSplitPayment(!!saved.isSplitPayment);
+      if (Array.isArray(saved.splitAllocations) && saved.splitAllocations.length > 0) {
+        setSplitAllocations(saved.splitAllocations);
+      }
+      setSmartInput(saved.smartInput || "");
+    } catch (error) {
+      console.warn("Failed to restore add transaction draft", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    const draft: AddTransactionDraft = {
+      formData,
+      editMode,
+      customCategory,
+      isSplitPayment,
+      splitAllocations,
+      smartInput,
+    };
+    localStorage.setItem(ADD_TRANSACTION_DRAFT_KEY, JSON.stringify(draft));
+  }, [formData, editMode, customCategory, isSplitPayment, splitAllocations, smartInput]);
+
+  const handleClose = () => {
+    clearDraft();
+    onClose();
+  };
+
+  const applySmartInput = async () => {
+    if (!smartInput.trim()) {
+      toast({
+        title: "Enter Smart Text",
+        description: "Type something like: Spent 250 on groceries via UPI yesterday",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const accountNames = uniqueAccounts.map((account) => account.name);
+    const expenseCategories = getCategoriesByType("expense");
+    const incomeCategories = getCategoriesByType("income");
+
+    let parsed = null;
+    let usedFallback = false;
+
+    setIsAiParsing(true);
+    try {
+      parsed = await parseTransactionWithAI({
+        text: smartInput,
+        accountNames,
+        expenseCategories,
+        incomeCategories,
+      });
+    } catch (error) {
+      usedFallback = true;
+      parsed = parseSmartTransactionInput(smartInput, {
+        accountNames,
+        expenseCategories,
+        incomeCategories,
+      });
+      console.warn("AI parser unavailable, using local parser", error);
+    } finally {
+      setIsAiParsing(false);
+    }
+
+    if (!parsed) {
+      toast({
+        title: "Could Not Parse",
+        description: "Try adding amount/type words, e.g. Spent 250 on food",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const matchedAccountId =
+      parsed.accountName
+        ? uniqueAccounts.find(
+            (account) => account.name.toLowerCase() === parsed.accountName?.toLowerCase()
+          )?.id
+        : undefined;
+
+    setFormData((prev) => {
+      const nextType = parsed.type ?? prev.type;
+      const nextCategory =
+        parsed.category && nextType && getCategoriesByType(nextType).includes(parsed.category)
+          ? parsed.category
+          : prev.category;
+
+      return {
+        ...prev,
+        type: nextType,
+        amount: parsed.amount ?? prev.amount,
+        category: nextCategory,
+        accountId: matchedAccountId ?? prev.accountId,
+        description: parsed.description ?? prev.description,
+        date: parsed.date ?? prev.date
+      };
+    });
+
+    toast({
+      title: "Smart Fill Applied",
+      description: usedFallback
+        ? "AI not available, local parser used. Review and submit."
+        : "AI parsed your text. Review and submit transaction."
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/50 overflow-y-auto">
       <div className="min-h-full flex items-start sm:items-center justify-center p-3 sm:p-4">
@@ -314,7 +456,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
           <Button 
             variant="ghost" 
             size="sm"
-            onClick={onClose}
+            onClick={handleClose}
             className="text-muted-foreground hover:text-foreground"
           >
             <XIcon className="w-4 h-4" />
@@ -323,6 +465,19 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
         
         <CardContent className="overflow-y-auto">
           <form id="add-transaction-form" onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2 rounded-md border border-border p-3">
+              <Label htmlFor="smart-input">Smart Entry (AI-like)</Label>
+              <Textarea
+                id="smart-input"
+                placeholder="Example: Spent 250 on groceries from cash yesterday"
+                value={smartInput}
+                onChange={(e) => setSmartInput(e.target.value)}
+              />
+              <Button type="button" variant="outline" size="sm" onClick={applySmartInput} disabled={isAiParsing}>
+                {isAiParsing ? "Analyzing..." : "Auto Fill Form"}
+              </Button>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="account">Account</Label>
               <Select 
@@ -582,7 +737,7 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
             <Button 
               type="button" 
               variant="outline" 
-              onClick={onClose} 
+              onClick={handleClose} 
               className="flex-1 border-muted-foreground text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               Cancel

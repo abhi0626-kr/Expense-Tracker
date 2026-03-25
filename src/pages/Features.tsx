@@ -6,7 +6,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   ArrowLeft,
   Target,
-  Repeat,
   Globe,
   FileSpreadsheet,
   LogOut,
@@ -14,7 +13,6 @@ import {
   Wallet,
 } from "lucide-react";
 import { BudgetManager } from "@/components/BudgetManager";
-import { RecurringTransactions } from "@/components/RecurringTransactions";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { ExportImport } from "@/components/ExportImport";
 import { AccountManager } from "@/components/AccountManager";
@@ -124,7 +122,7 @@ const Features = () => {
       {/* Main Content */}
       <main className="container px-3 sm:px-4 py-4 sm:py-6">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-5 mb-4 sm:mb-6 h-10 sm:h-11">
+          <TabsList className="grid w-full grid-cols-4 mb-4 sm:mb-6 h-10 sm:h-11">
             <TabsTrigger data-tour="accounts-tab" value="accounts" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Accounts</span>
@@ -132,10 +130,6 @@ const Features = () => {
             <TabsTrigger data-tour="budgets-tab" value="budgets" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Budgets</span>
-            </TabsTrigger>
-            <TabsTrigger data-tour="recurring-tab" value="recurring" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
-              <Repeat className="h-4 w-4" />
-              <span className="hidden sm:inline">Recurring</span>
             </TabsTrigger>
             <TabsTrigger data-tour="currency-tab" value="currency" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
               <Globe className="h-4 w-4" />
@@ -159,10 +153,6 @@ const Features = () => {
 
           <TabsContent value="budgets">
             <BudgetManager />
-          </TabsContent>
-
-          <TabsContent value="recurring">
-            <RecurringTransactions accounts={accounts} />
           </TabsContent>
 
           <TabsContent value="currency">

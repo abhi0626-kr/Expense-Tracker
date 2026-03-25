@@ -8,3 +8,6 @@ verify_jwt = false
 
 [functions.sync-to-sheets]
 verify_jwt = true
+
+[functions.parse-transaction]
+verify_jwt = false

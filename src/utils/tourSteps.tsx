@@ -47,7 +47,7 @@ export const dashboardTourSteps: Step[] = [
       <div>
         <h3 className="font-bold mb-2">Advanced Features</h3>
         <p>
-          Access powerful tools like Budget Manager, Recurring Transactions, Currency Converter, Investment Tracker, Receipt Scanner, and data Import/Export.
+          Access powerful tools like Budget Manager, Currency Converter, and data Import/Export.
         </p>
         <p className="text-sm text-muted-foreground mt-2">
           Budget alerts will show up here when you're close to exceeding your limits!
@@ -221,7 +221,7 @@ export const dashboardTourSteps: Step[] = [
           You now know how to use all the main features of Expense Tracker!
         </p>
         <p className="text-sm text-muted-foreground">
-          Don't forget to explore the Features page for advanced tools like budgets, recurring transactions, investments, and more!
+          Don't forget to explore the Features page for advanced tools like budgets, currency conversion, and import/export.
         </p>
       </div>
     ),
@@ -261,18 +261,6 @@ export const featuresTourSteps: Step[] = [
         <h3 className="font-bold mb-2">Budget Manager</h3>
         <p>
           Set monthly budgets for different categories to control your spending. Get alerts when you're approaching or exceeding your limits!
-        </p>
-      </div>
-    ),
-    placement: "bottom",
-  },
-  {
-    target: '[data-tour="recurring-tab"]',
-    content: (
-      <div>
-        <h3 className="font-bold mb-2">Recurring Transactions</h3>
-        <p>
-          Set up automatic transactions for subscriptions, bills, salary, and other recurring income or expenses. Never forget a payment again!
         </p>
       </div>
     ),

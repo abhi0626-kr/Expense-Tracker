@@ -37,6 +37,8 @@ import { dashboardTourSteps } from "@/utils/tourSteps";
 import { supabase } from "@/integrations/supabase/client";
 import { CallBackProps, STATUS } from "react-joyride";
 
+const ADD_TRANSACTION_DRAFT_KEY = "expense-tracker:add-transaction-draft";
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { signOut, user } = useAuth();
@@ -62,6 +64,13 @@ const Dashboard = () => {
       fetchProfile();
     }
   }, [user]);
+
+  useEffect(() => {
+    const savedDraft = localStorage.getItem(ADD_TRANSACTION_DRAFT_KEY);
+    if (savedDraft) {
+      setShowAddTransaction(true);
+    }
+  }, []);
 
   const fetchProfile = async () => {
     try {

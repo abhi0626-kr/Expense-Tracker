@@ -8,7 +8,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Sparkles, X } from "lucide-react";
+import { Sparkles } from "lucide-react";
 
 interface WelcomeDialogProps {
   onStartTour: () => void;
@@ -80,7 +80,7 @@ export const WelcomeDialog = ({ onStartTour, onSkip }: WelcomeDialogProps) => {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary">•</span>
-                <span>Using budgets, recurring transactions, and more</span>
+                <span>Using budgets, currency conversion, and data export/import</span>
               </li>
             </ul>
           </div>
