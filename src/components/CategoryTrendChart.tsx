@@ -66,7 +66,7 @@ export const CategoryTrendChart = ({ transactions }: CategoryTrendChartProps) =>
 
   return (
     <Card className="bg-gradient-card shadow-card-shadow h-full flex flex-col">
-      <CardHeader className="space-y-4">
+      <CardHeader className="space-y-4 pb-2">
         <div className="flex items-center justify-between">
           <CardTitle className="text-lg font-semibold text-foreground">
             Top Spending Categories
@@ -82,38 +82,6 @@ export const CategoryTrendChart = ({ transactions }: CategoryTrendChartProps) =>
               Clear
             </Button>
           )}
-        </div>
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="start-date" className="text-xs font-medium text-muted-foreground">
-              Start Date
-            </Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground pointer-events-none" />
-              <Input
-                id="start-date"
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="pl-10 h-10 bg-muted/50 border-border/50 focus:border-primary transition-colors"
-              />
-            </div>
-          </div>
-          <div className="flex-1 space-y-1.5">
-            <Label htmlFor="end-date" className="text-xs font-medium text-muted-foreground">
-              End Date
-            </Label>
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-foreground pointer-events-none" />
-              <Input
-                id="end-date"
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="pl-10 h-10 bg-muted/50 border-border/50 focus:border-primary transition-colors"
-              />
-            </div>
-          </div>
         </div>
       </CardHeader>
       <CardContent className="flex-1">
@@ -168,6 +136,38 @@ export const CategoryTrendChart = ({ transactions }: CategoryTrendChartProps) =>
             </ResponsiveContainer>
           </div>
         )}
+        <div className="flex flex-col sm:flex-row gap-3 mt-4 pt-4 border-t border-border/30">
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="start-date" className="text-xs font-medium text-muted-foreground">
+              Start Date
+            </Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 h-4 w-4 text-foreground pointer-events-none" />
+              <Input
+                id="start-date"
+                type="date"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+                className="pl-10 h-10 bg-muted/50 border-border/50 focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            <Label htmlFor="end-date" className="text-xs font-medium text-muted-foreground">
+              End Date
+            </Label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-3 h-4 w-4 text-foreground pointer-events-none" />
+              <Input
+                id="end-date"
+                type="date"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
+                className="pl-10 h-10 bg-muted/50 border-border/50 focus:border-primary transition-colors"
+              />
+            </div>
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
