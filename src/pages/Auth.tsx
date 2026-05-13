@@ -20,6 +20,8 @@ import {
 
 // Get your hCaptcha site key from Supabase Dashboard > Settings > Auth > Bot and Abuse Prevention
 const HCAPTCHA_SITE_KEY = import.meta.env.VITE_HCAPTCHA_SITE_KEY || "YOUR_HCAPTCHA_SITE_KEY";
+const APP_URL = import.meta.env.VITE_APP_URL || window.location.origin;
+const APP_LOGO = "/logo.svg";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -118,7 +120,7 @@ const Auth = () => {
         email,
         password,
         options: {
-          emailRedirectTo: `${window.location.origin}/`,
+          emailRedirectTo: `${APP_URL}/`,
           data: {
             email_verified: true,
           },
@@ -228,7 +230,7 @@ const Auth = () => {
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${APP_URL}/`,
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
@@ -266,7 +268,7 @@ const Auth = () => {
 
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth?reset=true`,
+        redirectTo: `${APP_URL}/auth?reset=true`,
       });
 
       if (error) {
@@ -374,7 +376,7 @@ const Auth = () => {
         <Card className="w-full max-w-md bg-card shadow-financial">
           <CardHeader className="text-center space-y-2">
             <div className="flex justify-center mb-4">
-              <WalletIcon className="h-12 w-12 text-primary" />
+              <img src={APP_LOGO} alt="Expense Tracker logo" className="h-14 w-14 rounded-2xl shadow-lg" />
             </div>
             <CardTitle className="text-2xl font-bold text-foreground">
               Reset Password
@@ -433,7 +435,7 @@ const Auth = () => {
       <Card className="w-full max-w-md bg-card shadow-financial">
         <CardHeader className="text-center space-y-2">
           <div className="flex justify-center mb-4">
-            <WalletIcon className="h-12 w-12 text-primary" />
+              <img src={APP_LOGO} alt="Expense Tracker logo" className="h-14 w-14 rounded-2xl shadow-lg" />
           </div>
           <CardTitle className="text-2xl font-bold text-foreground">
             Expense Tracker
