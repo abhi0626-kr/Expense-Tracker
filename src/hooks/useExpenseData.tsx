@@ -366,28 +366,108 @@ export const useExpenseData = () => {
       return;
     }
 
-    try {
-      // First, delete the transaction
-      const { error: deleteError } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", transactionId)
-        .eq("user_id", user.id);
+    const isTransfer = transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer");
+    const transferCounterpart = isTransfer
+      ? transactions.find((other) =>
+          other.id !== transaction.id &&
+          (other.type === "transfer" || other.category.toLowerCase().includes("transfer")) &&
+          Math.abs(other.amount) === Math.abs(transaction.amount) &&
+          new Date(other.date).toDateString() === new Date(transaction.date).toDateString() &&
+          (other.time || "") === (transaction.time || "")
+        )
+      : undefined;
 
-      if (deleteError) {
-        console.error("Delete error:", deleteError);
-        throw deleteError;
+    try {
+      const idsToDelete = transferCounterpart
+        ? [transaction.id, transferCounterpart.id]
+        : [transaction.id];
+
+      for (const id of idsToDelete) {
+        const { error: deleteError } = await supabase
+          .from("transactions")
+          .delete()
+          .eq("id", id)
+          .eq("user_id", user.id);
+
+        if (deleteError) {
+          console.error("Delete error:", deleteError);
+          throw deleteError;
+        }
       }
 
-      // Revert account balance
-      const account = accounts.find(a => a.id === transaction.account_id);
-      if (account) {
-        const balanceChange = transaction.type === "income" 
-          ? -transaction.amount 
-          : transaction.amount;
+      const amount = Math.abs(transaction.amount);
+
+      if (transferCounterpart) {
+        const sourceAccountId = transaction.amount < 0 ? transaction.account_id : transferCounterpart.account_id;
+        const destinationAccountId = transaction.amount < 0 ? transferCounterpart.account_id : transaction.account_id;
         
-        const newBalance = account.balance + balanceChange;
-        
+        // Fetch current account balances from database to avoid stale state
+        const { data: sourceData, error: sourceFetchError } = await supabase
+          .from("accounts")
+          .select("balance")
+          .eq("id", sourceAccountId)
+          .eq("user_id", user.id)
+          .single();
+
+        const { data: destData, error: destFetchError } = await supabase
+          .from("accounts")
+          .select("balance")
+          .eq("id", destinationAccountId)
+          .eq("user_id", user.id)
+          .single();
+
+        if (sourceFetchError || destFetchError) {
+          throw new Error("Failed to fetch current account balances");
+        }
+
+        const sourceBalance = sourceData?.balance || 0;
+        const destBalance = destData?.balance || 0;
+
+        // Update source account (add the amount back)
+        const { error: sourceUpdateError } = await supabase
+          .from("accounts")
+          .update({ balance: sourceBalance + amount })
+          .eq("id", sourceAccountId)
+          .eq("user_id", user.id);
+
+        if (sourceUpdateError) {
+          console.error("Source balance update error:", sourceUpdateError);
+          throw sourceUpdateError;
+        }
+
+        // Update destination account (subtract the amount)
+        const { error: destinationUpdateError } = await supabase
+          .from("accounts")
+          .update({ balance: destBalance - amount })
+          .eq("id", destinationAccountId)
+          .eq("user_id", user.id);
+
+        if (destinationUpdateError) {
+          console.error("Destination balance update error:", destinationUpdateError);
+          throw destinationUpdateError;
+        }
+      } else {
+        // Fetch current account balance from database
+        const { data: accountData, error: fetchError } = await supabase
+          .from("accounts")
+          .select("balance")
+          .eq("id", transaction.account_id)
+          .eq("user_id", user.id)
+          .single();
+
+        if (fetchError) {
+          throw new Error("Failed to fetch current account balance");
+        }
+
+        const currentBalance = accountData?.balance || 0;
+        const balanceChange = transaction.type === "income"
+          ? -transaction.amount
+          : transaction.type === "transfer"
+            ? -transaction.amount
+            : transaction.amount;
+
+        const newBalance = currentBalance + balanceChange;
+
         const { error: updateError } = await supabase
           .from("accounts")
           .update({ balance: newBalance })
@@ -404,8 +484,10 @@ export const useExpenseData = () => {
       await Promise.all([fetchTransactions(), fetchAccounts()]);
       
       toast({
-        title: "Transaction deleted",
-        description: "Your transaction has been successfully removed.",
+        title: isTransfer ? "Transfer deleted" : "Transaction deleted",
+        description: isTransfer
+          ? "The transfer has been removed and both account balances were updated."
+          : "Your transaction has been successfully removed.",
       });
     } catch (error: any) {
       console.error("Error deleting transaction:", error);

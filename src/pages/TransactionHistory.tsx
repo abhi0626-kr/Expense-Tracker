@@ -638,9 +638,6 @@ async function handleDelete(
   deleteTransactionFn: (id: string) => Promise<void> | void
 ) {
   await deleteTransactionFn(display.transaction.id);
-  if (display.counterpart) {
-    await deleteTransactionFn(display.counterpart.id);
-  }
   if (display.splitParts) {
     for (const splitPart of display.splitParts) {
       await deleteTransactionFn(splitPart.id);

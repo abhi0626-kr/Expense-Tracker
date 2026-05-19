@@ -83,9 +83,6 @@ export const TransactionList = ({ transactions, accounts, onDeleteTransaction }:
 
   const handleDelete = async (display: DisplayTransaction) => {
     await onDeleteTransaction(display.transaction.id);
-    if (display.counterpart) {
-      await onDeleteTransaction(display.counterpart.id);
-    }
     if (display.splitParts) {
       for (const splitPart of display.splitParts) {
         await onDeleteTransaction(splitPart.id);
