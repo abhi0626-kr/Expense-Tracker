@@ -19,6 +19,7 @@ import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, Arr
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
+import SlideButton from "@/components/ui/slide-button";
 import { EditAccount } from "./EditAccount";
 import { SpendingChart } from "./SpendingChart";
 import { SpendingTrendChart } from "./SpendingTrendChart";
@@ -162,16 +163,14 @@ const Dashboard = () => {
             <p className="text-sm text-muted-foreground">Track your accounts and spending</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button 
+            <SlideButton
               data-tour="add-transaction"
+              label="Add Transaction"
+              onSlideComplete={() => setShowAddTransaction(true)}
+              onDoubleClick={() => setShowAddTransaction(true)}
               onClick={() => setShowAddTransaction(true)}
-              className="bg-success hover:bg-success/90 text-success-foreground shadow-financial flex-1 sm:flex-none"
-              size="sm"
-            >
-              <PlusIcon className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Add Transaction</span>
-              <span className="sm:hidden">Add</span>
-            </Button>
+              className="w-52 flex-none"
+            />
             <Button 
               data-tour="transfer-funds"
               onClick={() => setShowTransferFunds(true)}

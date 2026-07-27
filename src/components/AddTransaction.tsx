@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -7,11 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Account, TransactionInput } from "@/hooks/useExpenseData";
-import { XIcon, EditIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { XIcon, EditIcon, PlusIcon, Trash2Icon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCategories, DEFAULT_CATEGORIES } from "@/hooks/useCategories";
 import { parseSmartTransactionInput } from "@/utils/smartTransactionParser";
 import { parseTransactionWithAI } from "@/utils/aiTransactionParser";
+import { cn } from "@/lib/utils";
+import SlideButton from "@/components/ui/slide-button";
 
 interface AddTransactionProps {
   accounts: Account[];
@@ -64,6 +67,11 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
   const [isSplitPayment, setIsSplitPayment] = useState(false);
   const [smartInput, setSmartInput] = useState("");
   const [isAiParsing, setIsAiParsing] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
+  const [clickCount, setClickCount] = useState(0);
+  const [isRippleActive, setIsRippleActive] = useState(false);
+  const clickTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [splitAllocations, setSplitAllocations] = useState<SplitFormItem[]>([
     { accountId: "", amount: "" },
     { accountId: "", amount: "" }
@@ -144,129 +152,175 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const executeSaveTransaction = async () => {
+    if (isSubmittingRef.current || isSubmitting) return;
+    isSubmittingRef.current = true;
+    setIsSubmitting(true);
+
+    try {
+      // Check if category or custom category is filled
+      const categoryFilled = formData.category || customCategory.trim();
+      
+      if (!formData.type || !formData.amount || !categoryFilled || !formData.description) {
+        toast({
+          title: "Missing Fields",
+          description: "Please fill in all required fields",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      if (!isSplitPayment && !formData.accountId) {
+        toast({
+          title: "Missing Account",
+          description: "Please select an account",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      const totalAmount = parseFloat(formData.amount);
+      if (isNaN(totalAmount) || totalAmount <= 0) {
+        toast({
+          title: "Invalid Amount",
+          description: "Please enter a valid total amount",
+          variant: "destructive"
+        });
+        return;
+      }
+
+      let splitPayload: { account_id: string; amount: number }[] | undefined = undefined;
+
+      if (isSplitPayment) {
+        if (splitAllocations.length < 2) {
+          toast({
+            title: "Split Payment Needs Two Accounts",
+            description: "Add at least two payment sources",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        const parsed = splitAllocations.map((allocation) => ({
+          account_id: allocation.accountId,
+          amount: parseFloat(allocation.amount)
+        }));
+
+        const hasInvalidRow = parsed.some(item => !item.account_id || isNaN(item.amount) || item.amount <= 0);
+        if (hasInvalidRow) {
+          toast({
+            title: "Invalid Split Rows",
+            description: "Each split row needs a valid account and amount",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        const duplicateAccounts = new Set(parsed.map(item => item.account_id)).size !== parsed.length;
+        if (duplicateAccounts) {
+          toast({
+            title: "Duplicate Accounts",
+            description: "Use each account only once in split payment",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        const splitSum = parsed.reduce((sum, item) => sum + item.amount, 0);
+        if (Math.abs(splitSum - totalAmount) > 0.01) {
+          toast({
+            title: "Split Total Mismatch",
+            description: "Split amounts must equal the total amount",
+            variant: "destructive"
+          });
+          return;
+        }
+
+        splitPayload = parsed;
+      }
+
+      // If using custom category, save it first
+      let finalCategory = formData.category;
+      if (customCategory.trim() && !formData.category) {
+        const success = await addCategory(customCategory.trim(), formData.type);
+        if (!success) return;
+        finalCategory = customCategory.trim();
+      }
+
+      const saveResult = await onAddTransaction({
+        account_id: isSplitPayment ? splitPayload![0].account_id : formData.accountId,
+        type: formData.type,
+        amount: totalAmount,
+        category: finalCategory,
+        description: formData.description,
+        date: formData.date,
+        time: formData.time,
+        split_allocations: splitPayload
+      });
+
+      if (saveResult === false) {
+        return;
+      }
+
+      toast({
+        title: "Success",
+        description: "Transaction added successfully",
+        variant: "default"
+      });
+
+      setFormData(buildInitialFormData());
+      setCustomCategory("");
+      setEditMode(false);
+      setIsSplitPayment(false);
+      setSmartInput("");
+      setSplitAllocations([
+        { accountId: "", amount: "" },
+        { accountId: "", amount: "" }
+      ]);
+      clearDraft();
+    } finally {
+      isSubmittingRef.current = false;
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Check if category or custom category is filled
-    const categoryFilled = formData.category || customCategory.trim();
-    
-    if (!formData.type || !formData.amount || !categoryFilled || !formData.description) {
-      toast({
-        title: "Missing Fields",
-        description: "Please fill in all required fields",
-        variant: "destructive"
-      });
-      return;
-    }
+    executeSaveTransaction();
+  };
 
-    if (!isSplitPayment && !formData.accountId) {
-      toast({
-        title: "Missing Account",
-        description: "Please select an account",
-        variant: "destructive"
-      });
-      return;
-    }
+  const handleButtonClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (isSubmitting || isSubmittingRef.current) return;
 
-    const totalAmount = parseFloat(formData.amount);
-    if (isNaN(totalAmount) || totalAmount <= 0) {
-      toast({
-        title: "Invalid Amount",
-        description: "Please enter a valid total amount",
-        variant: "destructive"
-      });
-      return;
-    }
+    // Trigger visual UI click ripple & pulse animation effect
+    setIsRippleActive(true);
+    setTimeout(() => setIsRippleActive(false), 300);
 
-    let splitPayload: { account_id: string; amount: number }[] | undefined = undefined;
+    setClickCount((prev) => {
+      const nextCount = prev + 1;
+      if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
 
-    if (isSplitPayment) {
-      if (splitAllocations.length < 2) {
-        toast({
-          title: "Split Payment Needs Two Accounts",
-          description: "Add at least two payment sources",
-          variant: "destructive"
-        });
-        return;
+      if (nextCount >= 2) {
+        // Double click saves single transaction immediately
+        executeSaveTransaction();
+        return 0;
+      } else {
+        // Single click -> Trigger UI feedback effect, wait for potential second click
+        clickTimerRef.current = setTimeout(() => {
+          executeSaveTransaction();
+          setClickCount(0);
+        }, 350);
+        return nextCount;
       }
-
-      const parsed = splitAllocations.map((allocation) => ({
-        account_id: allocation.accountId,
-        amount: parseFloat(allocation.amount)
-      }));
-
-      const hasInvalidRow = parsed.some(item => !item.account_id || isNaN(item.amount) || item.amount <= 0);
-      if (hasInvalidRow) {
-        toast({
-          title: "Invalid Split Rows",
-          description: "Each split row needs a valid account and amount",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const duplicateAccounts = new Set(parsed.map(item => item.account_id)).size !== parsed.length;
-      if (duplicateAccounts) {
-        toast({
-          title: "Duplicate Accounts",
-          description: "Use each account only once in split payment",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      const splitSum = parsed.reduce((sum, item) => sum + item.amount, 0);
-      if (Math.abs(splitSum - totalAmount) > 0.01) {
-        toast({
-          title: "Split Total Mismatch",
-          description: "Split amounts must equal the total amount",
-          variant: "destructive"
-        });
-        return;
-      }
-
-      splitPayload = parsed;
-    }
-
-    // If using custom category, save it first
-    let finalCategory = formData.category;
-    if (customCategory.trim() && !formData.category) {
-      const success = await addCategory(customCategory.trim(), formData.type);
-      if (!success) return;
-      finalCategory = customCategory.trim();
-    }
-
-    const saveResult = await onAddTransaction({
-      account_id: isSplitPayment ? splitPayload![0].account_id : formData.accountId,
-      type: formData.type,
-      amount: totalAmount,
-      category: finalCategory,
-      description: formData.description,
-      date: formData.date,
-      time: formData.time,
-      split_allocations: splitPayload
     });
+  };
 
-    if (saveResult === false) {
-      return;
-    }
-
-    toast({
-      title: "Success",
-      description: "Transaction added successfully",
-      variant: "default"
-    });
-
-    setFormData(buildInitialFormData());
-    setCustomCategory("");
-    setEditMode(false);
-    setIsSplitPayment(false);
-    setSmartInput("");
-    setSplitAllocations([
-      { accountId: "", amount: "" },
-      { accountId: "", amount: "" }
-    ]);
-    clearDraft();
+  const handleDoubleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (clickTimerRef.current) clearTimeout(clickTimerRef.current);
+    setClickCount(0);
+    executeSaveTransaction();
   };
 
   // Show each account name only once to avoid duplicates in the dropdown
@@ -742,14 +796,14 @@ export const AddTransaction = ({ accounts, onAddTransaction, onClose }: AddTrans
             >
               Cancel
             </Button>
-            <Button
-              type="submit"
-              form="add-transaction-form"
-              className="flex-1 bg-success hover:bg-success/90 text-success-foreground shadow-financial"
-              disabled={!canSubmit}
-            >
-              Add Transaction
-            </Button>
+            <SlideButton
+              label="Save Transaction"
+              onSlideComplete={executeSaveTransaction}
+              onDoubleClick={executeSaveTransaction}
+              isSubmitting={isSubmitting}
+              disabled={!canSubmit || isSubmitting}
+              className="flex-1 min-w-[170px]"
+            />
           </div>
         </div>
       </Card>

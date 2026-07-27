@@ -39,6 +39,7 @@ export const useExpenseData = () => {
   const [loading, setLoading] = useState(true);
   const defaultAccountsCreated = useRef(false);
   const timeColumnMissingRef = useRef(false);
+  const lastAddedTransactionRef = useRef<{ payload: string; time: number } | null>(null);
 
   // Fetch accounts
   const fetchAccounts = async () => {
@@ -166,6 +167,19 @@ export const useExpenseData = () => {
   // Add transaction
   const addTransaction = async (transaction: TransactionInput) => {
     if (!user) return false;
+
+    // Deduplication check: prevent saving duplicate transaction within 1.5 seconds
+    const payloadKey = JSON.stringify(transaction);
+    const now = Date.now();
+    if (
+      lastAddedTransactionRef.current &&
+      lastAddedTransactionRef.current.payload === payloadKey &&
+      now - lastAddedTransactionRef.current.time < 1500
+    ) {
+      console.warn("Duplicate transaction save request ignored.");
+      return true;
+    }
+    lastAddedTransactionRef.current = { payload: payloadKey, time: now };
 
     try {
       const desiredTime = transaction.time || "00:00";
