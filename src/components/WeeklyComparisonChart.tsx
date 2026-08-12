@@ -44,19 +44,19 @@ export const WeeklyComparisonChart = ({ transactions }: WeeklyComparisonChartPro
         {weeklyData.every((d) => d.expenses === 0 && d.income === 0) ? (
           <p className="text-muted-foreground text-center py-8">No transaction data to display</p>
         ) : (
-          <div className="h-[320px]">
+          <div className="h-[200px] md:h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={weeklyData}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="week" 
                   stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
+                  fontSize={10}
                   tickLine={false}
                 />
                 <YAxis 
                   stroke="hsl(var(--muted-foreground))"
-                  fontSize={12}
+                  fontSize={10}
                   tickLine={false}
                   tickFormatter={(value) => `₹${value.toLocaleString('en-IN')}`}
                 />
@@ -73,13 +73,13 @@ export const WeeklyComparisonChart = ({ transactions }: WeeklyComparisonChartPro
                 <Bar 
                   dataKey="income" 
                   fill="hsl(var(--success))"
-                  radius={[4, 4, 0, 0]}
+                  radius={[3, 3, 0, 0]}
                   name="Income"
                 />
                 <Bar 
                   dataKey="expenses" 
                   fill="hsl(var(--destructive))"
-                  radius={[4, 4, 0, 0]}
+                  radius={[3, 3, 0, 0]}
                   name="Expenses"
                 />
               </BarChart>

@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { ArrowLeftIcon, SaveIcon, Loader2, UploadIcon, UserIcon, BookOpen } from "lucide-react";
 
 interface ProfileData {
@@ -125,7 +126,7 @@ const Profile = () => {
     if (!file.type.startsWith("image/")) {
       toast({
         title: "Invalid file type",
-        description: "Please select an image file",
+        description: "Please select an image file (JPG, PNG, GIF, WebP).",
         variant: "destructive",
       });
       return;
@@ -135,7 +136,7 @@ const Profile = () => {
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: "File too large",
-        description: "Please select an image smaller than 5MB",
+        description: "Please select an image smaller than 5MB.",
         variant: "destructive",
       });
       return;
@@ -143,51 +144,66 @@ const Profile = () => {
 
     setUploading(true);
 
-    try {
-      // Create unique file name
-      const fileExt = file.name.split(".").pop();
-      const fileName = `${user?.id}-${Date.now()}.${fileExt}`;
-      const filePath = `profile-images/${fileName}`;
+    // Read local file as Data URL first so device upload ALWAYS works instantly
+    const reader = new FileReader();
+    reader.onload = async () => {
+      const base64Url = reader.result as string;
 
-      // Upload to Supabase Storage
-      const { error: uploadError } = await supabase.storage
-        .from("avatars")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: true,
+      // Set local base64 preview immediately
+      setProfileData((prev) => ({
+        ...prev,
+        profile_image_url: base64Url,
+      }));
+
+      try {
+        // Attempt Supabase Storage upload
+        const fileExt = file.name.split(".").pop();
+        const fileName = `${user?.id || "user"}-${Date.now()}.${fileExt}`;
+        const filePath = `profile-images/${fileName}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("avatars")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: true,
+          });
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from("avatars")
+            .getPublicUrl(filePath);
+
+          if (urlData?.publicUrl) {
+            setProfileData((prev) => ({
+              ...prev,
+              profile_image_url: urlData.publicUrl,
+            }));
+          }
+        }
+      } catch (err) {
+        console.warn("Storage upload fallback to local Base64:", err);
+      } finally {
+        setUploading(false);
+        toast({
+          title: "Image selected",
+          description: "Profile picture loaded from your local device. Click 'Save Profile' to save changes.",
         });
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      }
+    };
 
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from("avatars")
-        .getPublicUrl(filePath);
-
-      // Update profile data with new URL
-      setProfileData({
-        ...profileData,
-        profile_image_url: urlData.publicUrl,
-      });
-
+    reader.onerror = () => {
+      setUploading(false);
       toast({
-        title: "Image uploaded",
-        description: "Profile image uploaded successfully. Click Save Profile to save changes.",
-      });
-    } catch (error: any) {
-      console.error("Upload error:", error);
-      toast({
-        title: "Upload failed",
-        description: error.message,
+        title: "Error reading file",
+        description: "Could not read the file from your local device.",
         variant: "destructive",
       });
-    } finally {
-      setUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
+    };
+
+    reader.readAsDataURL(file);
   };
 
   if (loading) {
@@ -391,10 +407,18 @@ const Profile = () => {
                   <span className="text-sm text-muted-foreground">Email</span>
                   <span className="text-sm font-medium text-foreground">{user?.email}</span>
                 </div>
-                <div className="flex justify-between py-2">
-                  <span className="text-sm text-muted-foreground">User ID</span>
-                  <span className="text-sm font-mono text-foreground">{user?.id}</span>
-                </div>
+                {user?.created_at && (
+                  <div className="flex justify-between py-2">
+                    <span className="text-sm text-muted-foreground">Account Created</span>
+                    <span className="text-sm font-medium text-foreground">
+                      {new Date(user.created_at).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </span>
+                  </div>
+                )}
               </div>
             </CardContent>
           </Card>
@@ -429,6 +453,8 @@ const Profile = () => {
             </CardContent>
           </Card>
         </div>
+
+        <BottomNavigation />
       </div>
     </ProtectedRoute>
   );

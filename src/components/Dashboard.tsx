@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -15,7 +15,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon, Settings2, AlertTriangle } from "lucide-react";
+import { PlusIcon, WalletIcon, TrendingUpIcon, TrendingDownIcon, LogOutIcon, ArrowRightLeft, UserIcon, Settings2, AlertTriangle, FileTextIcon } from "lucide-react";
 import { AccountCard } from "./AccountCard";
 import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
@@ -28,6 +28,7 @@ import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
 import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
 import { ThemeToggle } from "./ThemeToggle";
+import { BottomNavigation } from "./BottomNavigation";
 import { OnboardingTour } from "./OnboardingTour";
 import { WelcomeDialog } from "./WelcomeDialog";
 import { useAuth } from "@/hooks/useAuth";
@@ -40,8 +41,30 @@ import { CallBackProps, STATUS } from "react-joyride";
 
 const ADD_TRANSACTION_DRAFT_KEY = "expense-tracker:add-transaction-draft";
 
+const formatMoney = (value: number) =>
+  `₹${Math.abs(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+
+const formatShortDate = (dateString: string) =>
+  new Date(dateString).toLocaleDateString("en-IN", {
+    day: "numeric",
+    month: "short",
+  });
+
+const getTransactionTone = (transaction: { type: string; amount: number; category: string }) => {
+  const isTransfer = transaction.type === "transfer" || transaction.category.toLowerCase().includes("transfer");
+  const isCredit = isTransfer ? transaction.amount > 0 : transaction.type === "income";
+
+  return {
+    label: isTransfer ? "Transfer" : transaction.type === "income" ? "Income" : "Expense",
+    sign: isCredit ? "+" : "-",
+    amountClass: isCredit ? "text-success" : "text-destructive",
+    iconClass: isCredit ? "bg-success/15 text-success" : "bg-destructive/15 text-destructive",
+  };
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut, user } = useAuth();
   const { 
     accounts, 
@@ -59,6 +82,31 @@ const Dashboard = () => {
   const [profileImage, setProfileImage] = useState<string>("");
   const [userName, setUserName] = useState<string>("");
   const { run, stepIndex, setStepIndex, completeTour, skipTour, startTour } = useOnboarding();
+
+  const recentTransactions = useMemo(() => transactions.slice(0, 5), [transactions]);
+
+  const spendingCategories = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+
+    transactions
+      .filter((transaction) => transaction.type !== "income")
+      .forEach((transaction) => {
+        const currentTotal = categoryMap.get(transaction.category) || 0;
+        categoryMap.set(transaction.category, currentTotal + Math.abs(transaction.amount));
+      });
+
+    return Array.from(categoryMap.entries())
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [transactions]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("add") === "true") {
+      setShowAddTransaction(true);
+    }
+  }, [location.search]);
 
   useEffect(() => {
     if (user) {
@@ -154,13 +202,322 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-6 space-y-6">
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-16 top-0 h-64 w-64 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute right-0 top-24 h-72 w-72 rounded-full bg-violet-500/10 blur-3xl" />
+      </div>
+
+      <div className="relative md:hidden mx-auto flex min-h-screen max-w-[430px] flex-col px-3 pt-3 pb-32 text-foreground">
+        <header className="rounded-2xl border border-border bg-card/90 px-3.5 py-3 shadow-md backdrop-blur-xl dark:bg-slate-950/80 dark:border-white/10 dark:shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-0.5">
+              <p className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">Financial Dashboard</p>
+              <h1 className="text-base font-semibold tracking-tight text-foreground">Welcome back, {userName || "there"}</h1>
+              <p className="text-[11px] text-muted-foreground">Track your money, one move at a time.</p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <div data-tour="theme-toggle" className="rounded-full border border-border bg-muted/50 p-1.5 backdrop-blur dark:border-white/10 dark:bg-white/5">
+                <ThemeToggle />
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-11 w-11 rounded-full border border-border bg-muted/50 text-foreground hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+                onClick={() => navigate("/profile")}
+                data-tour="profile-button"
+              >
+                <Avatar className="h-8 w-8">
+                  <AvatarImage src={profileImage} alt={userName || "User"} />
+                  <AvatarFallback className="bg-muted text-xs text-muted-foreground dark:bg-slate-800 dark:text-slate-200">
+                    <UserIcon className="h-4 w-4" />
+                  </AvatarFallback>
+                </Avatar>
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-2 border-t border-border pt-3 dark:border-white/10">
+            <Button
+              data-tour="features-button"
+              onClick={() => navigate("/features")}
+              variant="outline"
+              className="h-10 flex-1 border-border bg-muted/40 text-foreground hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
+              size="sm"
+            >
+              Overview
+            </Button>
+
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  data-tour="signout-button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-10 w-10 rounded-full border border-border bg-muted/40 text-foreground hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-slate-200 dark:hover:bg-white/10"
+                >
+                  <LogOutIcon className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Sign Out?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Are you sure you want to sign out? You'll need to sign in again to access your account.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    className="bg-destructive hover:bg-destructive/90"
+                    onClick={handleSignOut}
+                  >
+                    Sign Out
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </header>
+
+        {budgetAlerts && budgetAlerts.length > 0 && (
+          <div className="mt-3 space-y-2">
+            {budgetAlerts.slice(0, 2).map((alert) => (
+              <Alert
+                key={alert.id}
+                variant={alert.alert_type === "exceeded" ? "destructive" : "default"}
+                className="cursor-pointer border-border bg-card text-sm text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+                onClick={() => navigate("/features")}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription>{alert.message}</AlertDescription>
+              </Alert>
+            ))}
+          </div>
+        )}
+
+        <section className="mt-4 grid grid-cols-3 gap-2.5">
+          <Card
+            data-tour="total-balance"
+            className="rounded-[22px] border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-cyan-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+          >
+            <CardContent className="p-3.5">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
+                <span>Total Balance</span>
+                <WalletIcon className="h-[18px] w-[18px] text-cyan-600 dark:text-cyan-300" />
+              </div>
+              <div className="mt-3 text-[15px] font-semibold text-foreground dark:text-white">{formatMoney(totalBalance)}</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            data-tour="total-income"
+            className="rounded-[22px] border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-emerald-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+          >
+            <CardContent className="p-3.5">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
+                <span>Total Income</span>
+                <TrendingUpIcon className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-300" />
+              </div>
+              <div className="mt-3 text-[15px] font-semibold text-emerald-600 dark:text-emerald-300">+{formatMoney(totalIncome)}</div>
+            </CardContent>
+          </Card>
+
+          <Card
+            data-tour="total-expenses"
+            className="rounded-[22px] border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-rose-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+          >
+            <CardContent className="p-3.5">
+              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
+                <span>Total Expense</span>
+                <TrendingDownIcon className="h-[18px] w-[18px] text-rose-600 dark:text-rose-300" />
+              </div>
+              <div className="mt-3 text-[15px] font-semibold text-rose-600 dark:text-rose-300">-{formatMoney(totalExpenses)}</div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section className="mt-4 space-y-3" data-tour="accounts-section">
+          <div className="flex items-center justify-between px-1">
+            <div>
+              <h2 className="text-base font-semibold text-foreground">My Accounts</h2>
+              <p className="text-xs text-muted-foreground">Balances across your main accounts</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full px-3 text-xs text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              onClick={() => navigate("/features?tab=accounts")}
+            >
+              View all
+            </Button>
+          </div>
+
+          <div className="space-y-2.5">
+            {accounts.slice(0, 3).map((account) => (
+              <Card
+                key={account.id}
+                className="rounded-[22px] border-border bg-card shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+              >
+                <CardContent className="p-3.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${account.color}`}>
+                        <WalletIcon className="h-[22px] w-[22px] text-white" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="truncate text-[15px] font-semibold text-foreground">{account.name}</p>
+                        <p className="text-[11px] text-muted-foreground">{account.type}</p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <p className={`text-[15px] font-semibold ${account.balance < 0 ? "text-rose-600 dark:text-rose-300" : "text-emerald-600 dark:text-emerald-300"}`}>
+                        {formatMoney(account.balance)}
+                      </p>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditingAccount(account)}
+                        className="mt-1 h-7 rounded-full px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
+                      >
+                        Edit
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[28px] border border-border bg-card p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]" data-tour="spending-trend">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] font-semibold text-foreground">Income vs Expense Trend</h2>
+              <p className="text-[11px] text-muted-foreground">View monthly or 30-day breakdown</p>
+            </div>
+          </div>
+
+          <div className="mt-4 w-full rounded-2xl bg-muted/40 p-3 min-h-[250px] sm:min-h-[280px] dark:bg-black/20">
+            <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[28px] border border-border bg-card p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]" data-tour="category-trend">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] font-semibold text-foreground">Top Spending Categories</h2>
+              <p className="text-[11px] text-muted-foreground">Where your money goes</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              onClick={() => navigate("/reports")}
+            >
+              Reports
+            </Button>
+          </div>
+
+          <div className="mt-4 grid gap-4">
+            <div className="mx-auto w-full rounded-2xl bg-muted/40 p-3 dark:bg-black/20">
+              <SpendingChart transactions={transactions} hideCardHeader={true} />
+            </div>
+
+            <div className="space-y-2.5">
+              {spendingCategories.length === 0 ? (
+                <p className="rounded-2xl border border-border bg-muted/30 px-3 py-4 text-[13px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                  No expense data yet.
+                </p>
+              ) : (
+                spendingCategories.map((item, index) => {
+                  const total = spendingCategories.reduce((sum, entry) => sum + entry.amount, 0) || 1;
+                  const width = `${Math.max(12, Math.round((item.amount / total) * 100))}%`;
+
+                  return (
+                    <div key={item.category} className="space-y-1.5 rounded-2xl border border-border bg-muted/30 p-3.5 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex items-center justify-between gap-2 text-[13px]">
+                        <span className="truncate font-medium text-foreground">{item.category}</span>
+                        <span className="text-muted-foreground">{Math.round((item.amount / total) * 100)}%</span>
+                      </div>
+                      <div className="h-2.5 overflow-hidden rounded-full bg-muted dark:bg-white/10">
+                        <div
+                          className={`h-full rounded-full ${index % 3 === 0 ? "bg-emerald-500" : index % 3 === 1 ? "bg-cyan-500" : "bg-violet-500"}`}
+                          style={{ width }}
+                        />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">{formatMoney(item.amount)}</p>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-[28px] border border-border bg-card p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]" data-tour="transaction-list">
+          <div className="flex items-center justify-between gap-2">
+            <div>
+              <h2 className="text-[15px] font-semibold text-foreground">Recent Transactions</h2>
+              <p className="text-[11px] text-muted-foreground">Latest activity from your accounts</p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-8 rounded-full px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              onClick={() => navigate("/transactions")}
+            >
+              View all
+            </Button>
+          </div>
+
+          <div className="mt-4 space-y-2.5">
+            {recentTransactions.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-muted/30 px-3 py-5 text-center text-[13px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                No transactions yet.
+              </p>
+            ) : (
+              recentTransactions.map((transaction) => {
+                const tone = getTransactionTone(transaction);
+
+                return (
+                  <div key={transaction.id} className="flex items-center gap-3 rounded-2xl border border-border bg-muted/30 p-3.5 dark:border-white/10 dark:bg-white/5">
+                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${tone.iconClass}`}>
+                      {tone.sign === "+" ? (
+                        <TrendingUpIcon className="h-4.5 w-4.5" />
+                      ) : (
+                        <TrendingDownIcon className="h-4.5 w-4.5" />
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="truncate text-[13px] font-medium text-foreground">{transaction.category || tone.label}</p>
+                        <p className={`whitespace-nowrap text-[13px] font-semibold ${tone.amountClass}`}>
+                          {tone.sign}{formatMoney(transaction.amount)}
+                        </p>
+                      </div>
+                      <p className="mt-1 truncate text-[11px] text-muted-foreground">{transaction.description}</p>
+                      <p className="mt-1 text-[10px] text-muted-foreground/80">{formatShortDate(transaction.date)}</p>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </section>
+
+        <BottomNavigation onAddClick={() => setShowAddTransaction(true)} />
+      </div>
+
+      <div className="hidden md:block container mx-auto px-4 py-6 space-y-6">
         {/* Header */}
         <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
           <div>
-            <h1 className="text-xl md:text-2xl font-bold text-foreground">Financial Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Track your accounts and spending</p>
+            <h1 className="text-lg font-semibold text-foreground">Financial Dashboard</h1>
+            <p className="text-xs text-muted-foreground">Track your accounts and spending</p>
           </div>
           <div className="flex flex-wrap gap-2">
             <SlideButton
@@ -251,13 +608,13 @@ const Dashboard = () => {
         {budgetAlerts && budgetAlerts.length > 0 && (
           <div className="space-y-2">
             {budgetAlerts.slice(0, 3).map((alert) => (
-              <Alert key={alert.id} variant={alert.alert_type === "exceeded" ? "destructive" : "default"} className="cursor-pointer" onClick={() => navigate("/features")}>
+              <Alert key={alert.id} variant={alert.alert_type === "exceeded" ? "destructive" : "default"} className="cursor-pointer" onClick={() => navigate("/features?tab=budgets")}>
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription>{alert.message}</AlertDescription>
               </Alert>
             ))}
             {budgetAlerts.length > 3 && (
-              <Button variant="link" className="text-sm" onClick={() => navigate("/features")}>
+              <Button variant="link" className="text-sm" onClick={() => navigate("/features?tab=budgets")}>
                 View all {budgetAlerts.length} budget alerts →
               </Button>
             )}
@@ -357,43 +714,49 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Add Transaction Modal */}
-        {showAddTransaction && (
-          <AddTransaction
-            accounts={accounts}
-            onAddTransaction={handleAddTransaction}
-            onClose={() => setShowAddTransaction(false)}
-          />
-        )}
-
-        {/* Edit Account Modal */}
-        {editingAccount && (
-          <EditAccount
-            account={editingAccount}
-            onUpdateAccount={handleUpdateAccount}
-            onClose={() => setEditingAccount(null)}
-          />
-        )}
-
-        {/* Transfer Funds Modal */}
-        <TransferFunds
-          open={showTransferFunds}
-          onOpenChange={setShowTransferFunds}
-          accounts={accounts}
-          onTransfer={handleTransferFunds}
-        />
-
-        {/* Welcome Dialog */}
-        <WelcomeDialog onStartTour={startTour} onSkip={skipTour} />
-
-        {/* Onboarding Tour */}
-        <OnboardingTour
-          steps={dashboardTourSteps}
-          run={run}
-          stepIndex={stepIndex}
-          onCallback={handleJoyrideCallback}
-        />
       </div>
+
+      {/* Add Transaction Modal */}
+      {showAddTransaction && (
+        <AddTransaction
+          accounts={accounts}
+          onAddTransaction={handleAddTransaction}
+          onClose={() => {
+            setShowAddTransaction(false);
+            if (location.search.includes("add=true")) {
+              navigate(location.pathname, { replace: true });
+            }
+          }}
+        />
+      )}
+
+      {/* Edit Account Modal */}
+      {editingAccount && (
+        <EditAccount
+          account={editingAccount}
+          onUpdateAccount={handleUpdateAccount}
+          onClose={() => setEditingAccount(null)}
+        />
+      )}
+
+      {/* Transfer Funds Modal */}
+      <TransferFunds
+        open={showTransferFunds}
+        onOpenChange={setShowTransferFunds}
+        accounts={accounts}
+        onTransfer={handleTransferFunds}
+      />
+
+      {/* Welcome Dialog */}
+      <WelcomeDialog onStartTour={startTour} onSkip={skipTour} />
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        steps={dashboardTourSteps}
+        run={run}
+        stepIndex={stepIndex}
+        onCallback={handleJoyrideCallback}
+      />
     </div>
   );
 };

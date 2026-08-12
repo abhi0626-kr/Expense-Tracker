@@ -15,10 +15,11 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { ArrowLeftIcon, ArrowUpIcon, ArrowDownIcon, TrashIcon, SearchIcon, DownloadIcon, FileTextIcon, FileSpreadsheetIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowUpIcon, ArrowDownIcon, TrashIcon, SearchIcon, DownloadIcon, FileTextIcon, FileSpreadsheetIcon, BarChart3Icon } from "lucide-react";
 import { CategoryBadge } from "@/components/CategoryBadge";
 import { useExpenseData, Transaction } from "@/hooks/useExpenseData";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { exportToCSV, exportToPDF } from "@/utils/exportUtils";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -35,6 +36,10 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { SpendingTrendChart } from "@/components/SpendingTrendChart";
+import { CategoryTrendChart } from "@/components/CategoryTrendChart";
+import { WeeklyComparisonChart } from "@/components/WeeklyComparisonChart";
+import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
 
 const formatTime12h = (time?: string) => {
   if (!time) return "Not available";
@@ -104,9 +109,17 @@ const TransactionHistory = () => {
   const displayTransactions = useMemo(() => buildDisplayTransactions(filteredTransactions), [filteredTransactions]);
 
   useEffect(() => {
-    setSelectedDisplayIds((prev) =>
-      prev.filter((id) => displayTransactions.some((display) => display.transaction.id === id))
-    );
+    setSelectedDisplayIds((prev) => {
+      const next = prev.filter((id) =>
+        displayTransactions.some((display) => display.transaction.id === id)
+      );
+
+      if (next.length === prev.length && next.every((id, index) => id === prev[index])) {
+        return prev;
+      }
+
+      return next;
+    });
   }, [displayTransactions]);
 
   const selectedDisplayTransactions = useMemo(
@@ -203,29 +216,31 @@ const TransactionHistory = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6">
+        <div className="container mx-auto px-4 py-4 md:py-6 space-y-4 md:space-y-6 pb-8 md:pb-6">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex items-center gap-2.5">
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => navigate("/")}
-                className="hover:bg-muted"
+                className="h-8 w-8 rounded-full hover:bg-muted"
               >
-                <ArrowLeftIcon className="w-5 h-5" />
+                <ArrowLeftIcon className="w-4 h-4" />
               </Button>
               <div>
-                <h1 className="text-xl md:text-2xl font-bold text-foreground">Transaction History</h1>
-                <p className="text-sm text-muted-foreground">View all your transactions</p>
+                <h1 className="text-sm sm:text-base font-semibold text-foreground tracking-tight">Transaction History</h1>
+                <p className="text-[11px] text-muted-foreground">View and filter all your transactions</p>
               </div>
             </div>
             
             <div className="flex items-center gap-2">
               <Button
                 variant={selectionMode ? "default" : "outline"}
+                size="sm"
                 onClick={handleToggleSelectionMode}
                 disabled={displayTransactions.length === 0}
+                className="h-8 text-xs rounded-full"
               >
                 {selectionMode ? "Cancel Selection" : "Select"}
               </Button>
@@ -234,10 +249,11 @@ const TransactionHistory = () => {
                 <DropdownMenuTrigger asChild>
                   <Button 
                     variant="outline" 
-                    className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+                    size="sm"
+                    className="h-8 text-xs rounded-full border-primary text-primary hover:bg-primary hover:text-primary-foreground"
                     disabled={filteredTransactions.length === 0}
                   >
-                    <DownloadIcon className="w-4 h-4 mr-2" />
+                    <DownloadIcon className="w-3.5 h-3.5 mr-1.5" />
                     Export
                   </Button>
                 </DropdownMenuTrigger>
@@ -253,6 +269,23 @@ const TransactionHistory = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
+          </div>
+
+          {/* Link to Dedicated Reports & Charts */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl border border-border bg-card shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80">
+            <div className="space-y-0.5">
+              <h2 className="text-xs sm:text-sm font-semibold text-foreground dark:text-white">Looking for Analytics & Charts?</h2>
+              <p className="text-[11px] text-muted-foreground dark:text-slate-400">View detailed income vs expense trends and category breakdowns.</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate("/reports")}
+              className="h-8 text-xs border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 shrink-0 w-full sm:w-auto rounded-full"
+            >
+              <BarChart3Icon className="w-3.5 h-3.5 mr-1.5" />
+              View Reports & Charts →
+            </Button>
           </div>
 
           {/* Filters */}
@@ -539,6 +572,8 @@ const TransactionHistory = () => {
             </DialogContent>
           </Dialog>
         </div>
+
+        <BottomNavigation />
       </div>
     </ProtectedRoute>
   );

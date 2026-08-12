@@ -11,6 +11,7 @@ import NotFound from "./pages/NotFound";
 import TransactionHistory from "./pages/TransactionHistory";
 import Profile from "./pages/Profile";
 import Features from "./pages/Features";
+import Reports from "./pages/Reports";
 
 const queryClient = new QueryClient();
 
@@ -26,6 +27,7 @@ const App = () => (
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/transactions" element={<TransactionHistory />} />
+              <Route path="/reports" element={<Reports />} />
               <Route path="/profile" element={<Profile />} />
               <Route path="/features" element={<Features />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

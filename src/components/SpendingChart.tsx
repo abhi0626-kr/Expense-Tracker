@@ -1,71 +1,76 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from "recharts";
 import { Transaction } from "@/hooks/useExpenseData";
 
 interface SpendingChartProps {
   transactions: Transaction[];
+  title?: string;
+  hideCardHeader?: boolean;
 }
 
-export const SpendingChart = ({ transactions }: SpendingChartProps) => {
+const EXPENSE_COLORS = [
+  "#EF4444", // Red
+  "#F97316", // Orange
+  "#F59E0B", // Amber
+  "#8B5CF6", // Purple
+  "#EC4899", // Pink
+  "#64748B", // Slate/Others
+];
+
+const INCOME_COLORS = [
+  "#10B981", // Emerald
+  "#06B6D4", // Cyan
+  "#3B82F6", // Blue
+  "#6366F1", // Indigo
+  "#14B8A6", // Teal
+  "#64748B", // Slate/Others
+];
+
+const processChartData = (dataMap: Record<string, number>) => {
+  const sorted = Object.entries(dataMap)
+    .map(([name, value]) => ({ name, value: Math.abs(value) }))
+    .filter((item) => item.value > 0)
+    .sort((a, b) => b.value - a.value);
+
+  if (sorted.length <= 5) return sorted;
+
+  const top4 = sorted.slice(0, 4);
+  const otherValue = sorted.slice(4).reduce((sum, item) => sum + item.value, 0);
+
+  if (otherValue > 0) {
+    top4.push({ name: "Others", value: otherValue });
+  }
+
+  return top4;
+};
+
+export const SpendingChart = ({ transactions, title = "Income & Expenses by Category", hideCardHeader = false }: SpendingChartProps) => {
   // Group income by category
   const incomeByCategory = transactions
-    .filter(t => t.type === "income")
-    .reduce((acc, transaction) => {
-      const category = transaction.category;
-      if (!acc[category]) {
-        acc[category] = 0;
-      }
-      acc[category] += transaction.amount;
+    .filter((t) => t.type === "income")
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
-
-  const incomeData = Object.entries(incomeByCategory).map(([category, amount]) => ({
-    name: category,
-    value: amount,
-  }));
 
   // Group expenses by category
   const expensesByCategory = transactions
-    .filter(t => t.type === "expense")
-    .reduce((acc, transaction) => {
-      const category = transaction.category;
-      if (!acc[category]) {
-        acc[category] = 0;
-      }
-      acc[category] += transaction.amount;
+    .filter((t) => t.type === "expense")
+    .reduce((acc, t) => {
+      acc[t.category] = (acc[t.category] || 0) + t.amount;
       return acc;
     }, {} as Record<string, number>);
 
-  const expenseData = Object.entries(expensesByCategory).map(([category, amount]) => ({
-    name: category,
-    value: amount,
-  }));
-
-  const EXPENSE_COLORS = [
-    '#ff3333ff', // red
-    '#ff730eff', // orange
-    '#F59E0B', // yellow
-    '#dfdb00ff', // darker red
-    '#ea0c7bff', // darker orange
-    '#d90688ff', // darker yellow
-  ];
-
-  const INCOME_COLORS = [
-    '#00ffaaff', // green
-    '#00ffe1ff', // teal
-    '#01d9ffff', // cyan
-    '#00eea3ff', // darker green
-    '#0D9488', // darker teal
-    '#06a9d1ff', // darker cyan
-  ];
+  const incomeData = processChartData(incomeByCategory);
+  const expenseData = processChartData(expensesByCategory);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="font-semibold text-foreground">{payload[0].name}</p>
-          <p className="text-foreground font-medium">
-            ₹{payload[0].value.toLocaleString('en-IN', { minimumFractionDigits: 2 })}
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xl backdrop-blur text-xs text-card-foreground dark:bg-slate-900/95 dark:border-white/10">
+          <p className="font-semibold text-foreground dark:text-white">{payload[0].name}</p>
+          <p className="text-emerald-600 dark:text-emerald-400 font-bold mt-1">
+            ₹{payload[0].value.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </p>
         </div>
       );
@@ -75,94 +80,120 @@ export const SpendingChart = ({ transactions }: SpendingChartProps) => {
 
   const hasData = incomeData.length > 0 || expenseData.length > 0;
 
-  return (
-    <Card className="bg-gradient-card shadow-card-shadow h-full flex flex-col">
-      <CardHeader>
-        <CardTitle className="text-lg font-semibold text-foreground">
-          Income & Expenses by Category
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex-1">
-        {!hasData ? (
-          <p className="text-muted-foreground text-center py-8">No transactions to display</p>
-        ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 h-full">
-            {/* Income Chart */}
-            {incomeData.length > 0 && (
-              <div className="space-y-2 h-full">
-                <h3 className="text-sm font-medium text-success text-center">Income</h3>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+  const content = (
+    <div className="w-full h-full flex flex-col justify-between">
+      {!hasData ? (
+        <p className="text-muted-foreground text-center py-12 text-sm">No transaction categories to display</p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 h-full">
+          {/* Income Chart */}
+          {incomeData.length > 0 && (
+            <div className="flex flex-col items-center justify-between p-2 rounded-2xl border border-border/60 bg-muted/20 dark:border-white/5 dark:bg-white/5">
+              <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Income Share</span>
+              <div className="h-36 sm:h-44 w-full my-1">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={incomeData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
+                      innerRadius={32}
+                      outerRadius={54}
+                      paddingAngle={4}
                       dataKey="value"
                     >
                       {incomeData.map((entry, index) => (
-                        <Cell 
-                          key={`income-${index}`} 
-                          fill={INCOME_COLORS[index % INCOME_COLORS.length]} 
+                        <Cell
+                          key={`income-${index}`}
+                          fill={INCOME_COLORS[index % INCOME_COLORS.length]}
                         />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => (
-                        <span className="text-xs text-foreground">{value}</span>
-                      )}
-                    />
                   </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </ResponsiveContainer>
               </div>
-            )}
 
-            {/* Expense Chart */}
-            {expenseData.length > 0 && (
-              <div className="space-y-2 h-full">
-                <h3 className="text-sm font-medium text-destructive text-center">Expenses</h3>
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
+              {/* Clean Legend */}
+              <div className="w-full flex flex-wrap justify-center gap-1.5 pt-1 text-[10px]">
+                {incomeData.map((entry, index) => (
+                  <span
+                    key={entry.name}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted/60 border border-border text-foreground dark:bg-slate-900/80 dark:border-white/10 dark:text-slate-300 max-w-[120px] truncate"
+                    title={`${entry.name}: ₹${entry.value.toLocaleString("en-IN")}`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: INCOME_COLORS[index % INCOME_COLORS.length] }}
+                    />
+                    <span className="truncate">{entry.name}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Expense Chart */}
+          {expenseData.length > 0 && (
+            <div className="flex flex-col items-center justify-between p-2 rounded-2xl border border-border/60 bg-muted/20 dark:border-white/5 dark:bg-white/5">
+              <span className="text-xs font-semibold text-rose-600 dark:text-rose-400">Expense Share</span>
+              <div className="h-36 sm:h-44 w-full my-1">
+                <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
                       data={expenseData}
                       cx="50%"
                       cy="50%"
-                      innerRadius={50}
-                      outerRadius={80}
-                      paddingAngle={5}
+                      innerRadius={32}
+                      outerRadius={54}
+                      paddingAngle={4}
                       dataKey="value"
                     >
                       {expenseData.map((entry, index) => (
-                        <Cell 
-                          key={`expense-${index}`} 
-                          fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]} 
+                        <Cell
+                          key={`expense-${index}`}
+                          fill={EXPENSE_COLORS[index % EXPENSE_COLORS.length]}
                         />
                       ))}
                     </Pie>
                     <Tooltip content={<CustomTooltip />} />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => (
-                        <span className="text-xs text-foreground">{value}</span>
-                      )}
-                    />
                   </PieChart>
-                  </ResponsiveContainer>
-                </div>
+                </ResponsiveContainer>
               </div>
-            )}
-          </div>
-        )}
-      </CardContent>
+
+              {/* Clean Legend */}
+              <div className="w-full flex flex-wrap justify-center gap-1.5 pt-1 text-[10px]">
+                {expenseData.map((entry, index) => (
+                  <span
+                    key={entry.name}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted/60 border border-border text-foreground dark:bg-slate-900/80 dark:border-white/10 dark:text-slate-300 max-w-[120px] truncate"
+                    title={`${entry.name}: ₹${entry.value.toLocaleString("en-IN")}`}
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full shrink-0"
+                      style={{ backgroundColor: EXPENSE_COLORS[index % EXPENSE_COLORS.length] }}
+                    />
+                    <span className="truncate">{entry.name}</span>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+
+  if (hideCardHeader) {
+    return content;
+  }
+
+  return (
+    <Card className="bg-card border-border shadow-sm h-full flex flex-col text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base font-semibold text-foreground dark:text-white">{title}</CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 p-3">{content}</CardContent>
     </Card>
   );
 };

@@ -1,9 +1,11 @@
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
+  ArrowUpRight,
   ArrowLeft,
   Target,
   Globe,
@@ -11,11 +13,16 @@ import {
   LogOut,
   UserIcon,
   Wallet,
+  ArrowDownRight,
+  ArrowRightLeft,
+  LayoutDashboard,
+  BarChart3,
 } from "lucide-react";
 import { BudgetManager } from "@/components/BudgetManager";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { ExportImport } from "@/components/ExportImport";
 import { AccountManager } from "@/components/AccountManager";
+import { BottomNavigation } from "@/components/BottomNavigation";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { useAuth } from "@/hooks/useAuth";
@@ -25,14 +32,64 @@ import { featuresTourSteps } from "@/utils/tourSteps";
 import { supabase } from "@/integrations/supabase/client";
 import { ImportedTransaction } from "@/utils/exportUtils";
 import { CallBackProps, STATUS } from "react-joyride";
+import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
+import { SpendingChart } from "@/components/SpendingChart";
+
+const formatMoney = (value: number) =>
+  `₹${Math.abs(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
+
+const getMonthRangeLabel = () => {
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), 1);
+  const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+
+  return `${start.toLocaleDateString("en-IN", { month: "short", day: "numeric" })} - ${end.toLocaleDateString("en-IN", { month: "short", day: "numeric", year: "numeric" })}`;
+};
 
 const Features = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { signOut, user } = useAuth();
   const { accounts, transactions, addTransaction, addAccount, updateAccount, deleteAccount, removeDuplicateAccounts } = useExpenseData();
   const [profileImage, setProfileImage] = useState<string>("");
   const [activeTab, setActiveTab] = useState("accounts");
   const { run, stepIndex, setStepIndex, completeTour, skipTour } = useOnboarding();
+
+  const totalIncome = useMemo(
+    () => transactions.filter((transaction) => transaction.type === "income").reduce((sum, transaction) => sum + transaction.amount, 0),
+    [transactions]
+  );
+
+  const totalExpenses = useMemo(
+    () => transactions.filter((transaction) => transaction.type === "expense").reduce((sum, transaction) => sum + transaction.amount, 0),
+    [transactions]
+  );
+
+  const netSavings = totalIncome - totalExpenses;
+
+  const spendingCategories = useMemo(() => {
+    const categoryMap = new Map<string, number>();
+
+    transactions
+      .filter((transaction) => transaction.type !== "income")
+      .forEach((transaction) => {
+        const currentTotal = categoryMap.get(transaction.category) || 0;
+        categoryMap.set(transaction.category, currentTotal + Math.abs(transaction.amount));
+      });
+
+    return Array.from(categoryMap.entries())
+      .map(([category, amount]) => ({ category, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [transactions]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const tabParam = params.get("tab") || (location.state as any)?.tab;
+    if (tabParam && ["accounts", "budgets", "currency", "export"].includes(tabParam)) {
+      setActiveTab(tabParam);
+    }
+  }, [location.search, location.state]);
 
   useEffect(() => {
     if (user) {
@@ -93,7 +150,12 @@ const Features = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute right-0 top-32 h-80 w-80 rounded-full bg-violet-500/10 blur-3xl" />
+      </div>
+
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur">
         <div className="container flex h-14 sm:h-16 items-center justify-between px-3 sm:px-4">
@@ -101,7 +163,7 @@ const Features = () => {
             <Button data-tour="back-to-dashboard" variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate("/")}>
               <ArrowLeft className="h-5 w-5" />
             </Button>
-            <h1 className="text-base sm:text-xl font-semibold">Advanced Features</h1>
+            <h1 className="text-base sm:text-lg font-semibold">Advanced Features</h1>
           </div>
           <div className="flex items-center gap-1">
             <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => navigate("/profile")}>
@@ -176,6 +238,8 @@ const Features = () => {
         stepIndex={stepIndex}
         onCallback={handleJoyrideCallback}
       />
+
+      <BottomNavigation />
     </div>
   );
 };
