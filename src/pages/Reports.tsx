@@ -77,7 +77,7 @@ const Reports = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/5 via-background to-background pb-32 md:pb-8">
+      <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/5 via-background to-background pb-44 md:pb-12 isolate">
         <div className="container mx-auto px-4 py-4 md:py-6 space-y-6 relative">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

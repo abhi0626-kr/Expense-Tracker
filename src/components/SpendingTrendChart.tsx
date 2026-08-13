@@ -181,6 +181,7 @@ export const SpendingTrendChart = ({
                 strokeWidth={2.5}
                 dot={{ fill: "#10B981", r: 3 }}
                 activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
+                isAnimationActive={false}
               />
               <Line
                 type="monotone"
@@ -189,6 +190,7 @@ export const SpendingTrendChart = ({
                 strokeWidth={2.5}
                 dot={{ fill: "#EF4444", r: 3 }}
                 activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
+                isAnimationActive={false}
               />
             </LineChart>
           </ResponsiveContainer>

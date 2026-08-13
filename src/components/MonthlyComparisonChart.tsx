@@ -80,18 +80,21 @@ export const MonthlyComparisonChart = ({
                 fill="#10b981"
                 radius={[3, 3, 0, 0]}
                 name="Income"
+                isAnimationActive={false}
               />
               <Bar 
                 dataKey="expenses" 
                 fill="#ef4444"
                 radius={[3, 3, 0, 0]}
                 name="Expenses"
+                isAnimationActive={false}
               />
               <Bar 
                 dataKey="net" 
                 fill="#8b5cf6"
                 radius={[3, 3, 0, 0]}
                 name="Net Savings"
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>

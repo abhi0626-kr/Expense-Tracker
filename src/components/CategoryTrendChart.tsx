@@ -309,6 +309,7 @@ export const CategoryTrendChart = ({ transactions, title = "Category Trend & Dat
                   dot={{ fill: "#10b981", r: 3 }}
                   activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
                   name="Income"
+                  isAnimationActive={false}
                 />
                 <Line
                   type="monotone"
@@ -318,6 +319,7 @@ export const CategoryTrendChart = ({ transactions, title = "Category Trend & Dat
                   dot={{ fill: "#ef4444", r: 3 }}
                   activeDot={{ r: 5, stroke: "#ffffff", strokeWidth: 2 }}
                   name="Expenses"
+                  isAnimationActive={false}
                 />
               </LineChart>
             </ResponsiveContainer>

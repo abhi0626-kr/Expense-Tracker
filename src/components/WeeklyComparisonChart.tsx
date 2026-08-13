@@ -77,12 +77,14 @@ export const WeeklyComparisonChart = ({
                 fill="#10b981"
                 radius={[3, 3, 0, 0]}
                 name="Income"
+                isAnimationActive={false}
               />
               <Bar 
                 dataKey="expenses" 
                 fill="#ef4444"
                 radius={[3, 3, 0, 0]}
                 name="Expenses"
+                isAnimationActive={false}
               />
             </BarChart>
           </ResponsiveContainer>
