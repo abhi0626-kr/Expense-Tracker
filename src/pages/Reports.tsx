@@ -194,16 +194,20 @@ const Reports = () => {
                   Income vs Expenses Trend ({period === "30d" ? "Last 30 Days" : period === "monthly" ? "Monthly Comparison" : "Weekly Comparison"})
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-64 md:h-80 w-full">
-                  {period === "monthly" ? (
+              <CardContent className="pt-2">
+                {period === "monthly" ? (
+                  <div className="h-64 md:h-80 w-full">
                     <MonthlyComparisonChart transactions={transactions} />
-                  ) : period === "weekly" ? (
+                  </div>
+                ) : period === "weekly" ? (
+                  <div className="h-64 md:h-80 w-full">
                     <WeeklyComparisonChart transactions={transactions} />
-                  ) : (
+                  </div>
+                ) : (
+                  <div className="w-full">
                     <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
-                  )}
-                </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </section>
@@ -228,7 +232,7 @@ const Reports = () => {
                   Category Expense Breakdown
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3 max-h-72 overflow-y-auto pr-1">
+              <CardContent className="space-y-3 max-h-80 overflow-y-auto pr-1">
                 {spendingCategories.length === 0 ? (
                   <p className="text-muted-foreground text-sm text-center py-8">No expenses recorded yet.</p>
                 ) : (
@@ -256,32 +260,21 @@ const Reports = () => {
           </section>
 
           {/* Section 3: Monthly & Category Trends */}
-          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+          <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
+            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10 h-full flex flex-col justify-between">
               <CardHeader className="pb-2">
                 <CardTitle className="text-base md:text-lg font-semibold">
                   Monthly Financial Comparison
                 </CardTitle>
               </CardHeader>
-              <CardContent>
-                <div className="h-64 w-full">
+              <CardContent className="flex-1">
+                <div className="h-64 sm:h-80 w-full">
                   <MonthlyComparisonChart transactions={transactions} />
                 </div>
               </CardContent>
             </Card>
 
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base md:text-lg font-semibold">
-                  Category Trend Over Time
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 w-full">
-                  <CategoryTrendChart transactions={transactions} />
-                </div>
-              </CardContent>
-            </Card>
+            <CategoryTrendChart transactions={transactions} />
           </section>
         </div>
 
