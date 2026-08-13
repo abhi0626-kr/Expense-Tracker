@@ -114,78 +114,26 @@ const Reports = () => {
             </div>
           </div>
 
-          {/* Time Period Tabs */}
-          <div className="flex justify-between items-center my-2 sm:my-4">
-            <Tabs value={period} onValueChange={(val) => setPeriod(val as any)} className="w-full sm:w-auto">
-              <TabsList className="grid grid-cols-3 w-full sm:w-auto">
-                <TabsTrigger value="30d" className="text-xs">30 Days</TabsTrigger>
-                <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
-                <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* Summary Metric Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 my-3 sm:my-5">
+          {/* Section 1: Income vs Expense Trend with Period Tabs */}
+          <section id="income-vs-expense" className="space-y-3">
             <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Total Balance</span>
-                  <WalletIcon className="w-4 h-4 text-primary" />
-                </div>
-                <div className="mt-2 text-base md:text-lg font-bold text-foreground">
-                  {formatMoney(totalBalance)}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Total Income</span>
-                  <TrendingUpIcon className="w-4 h-4 text-emerald-500" />
-                </div>
-                <div className="mt-2 text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400">
-                  +{formatMoney(totalIncome)}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Total Expense</span>
-                  <TrendingDownIcon className="w-4 h-4 text-rose-500" />
-                </div>
-                <div className="mt-2 text-base md:text-lg font-bold text-rose-600 dark:text-rose-400">
-                  -{formatMoney(totalExpenses)}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardContent className="p-4">
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>Net Savings</span>
-                  <PieChartIcon className="w-4 h-4 text-violet-500" />
-                </div>
-                <div className={`mt-2 text-base md:text-lg font-bold ${netSavings >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
-                  {netSavings >= 0 ? "+" : "-"}{formatMoney(netSavings)}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Section 1: Income vs Expense Trend */}
-          <section id="income-vs-expense" className="space-y-3 pt-2">
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardHeader className="pb-2 pt-4 border-b border-border/40">
+              <CardHeader className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 pt-4 border-b border-border/40">
                 <CardTitle className="text-sm sm:text-base md:text-lg font-semibold flex items-center gap-2">
                   <TrendingUpIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0" />
-                  Income vs Expenses Trend ({period === "30d" ? "Last 30 Days" : period === "monthly" ? "Monthly Comparison" : "Weekly Comparison"})
+                  Income vs Expenses Trend
                 </CardTitle>
+
+                {/* Time Period Tabs inside Chart Header */}
+                <Tabs value={period} onValueChange={(val) => setPeriod(val as any)} className="w-full sm:w-auto">
+                  <TabsList className="grid grid-cols-3 w-full sm:w-auto">
+                    <TabsTrigger value="30d" className="text-xs">30 Days</TabsTrigger>
+                    <TabsTrigger value="monthly" className="text-xs">Monthly</TabsTrigger>
+                    <TabsTrigger value="weekly" className="text-xs">Weekly</TabsTrigger>
+                  </TabsList>
+                </Tabs>
               </CardHeader>
-              <CardContent className="pt-3">
+
+              <CardContent className="pt-4">
                 {period === "monthly" ? (
                   <MonthlyComparisonChart transactions={transactions} hideCardHeader={true} />
                 ) : period === "weekly" ? (
@@ -248,6 +196,62 @@ const Reports = () => {
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
             <MonthlyComparisonChart transactions={transactions} />
             <CategoryTrendChart transactions={transactions} />
+          </section>
+
+          {/* Section 4: Summary Overview Cards Relocated to the Bottom */}
+          <section className="space-y-3 pt-2">
+            <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Financial Overview Summary
+            </h2>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+              <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Total Balance</span>
+                    <WalletIcon className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="mt-2 text-base md:text-lg font-bold text-foreground">
+                    {formatMoney(totalBalance)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Total Income</span>
+                    <TrendingUpIcon className="w-4 h-4 text-emerald-500" />
+                  </div>
+                  <div className="mt-2 text-base md:text-lg font-bold text-emerald-600 dark:text-emerald-400">
+                    +{formatMoney(totalIncome)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Total Expense</span>
+                    <TrendingDownIcon className="w-4 h-4 text-rose-500" />
+                  </div>
+                  <div className="mt-2 text-base md:text-lg font-bold text-rose-600 dark:text-rose-400">
+                    -{formatMoney(totalExpenses)}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>Net Savings</span>
+                    <PieChartIcon className="w-4 h-4 text-violet-500" />
+                  </div>
+                  <div className={`mt-2 text-base md:text-lg font-bold ${netSavings >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+                    {netSavings >= 0 ? "+" : "-"}{formatMoney(netSavings)}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </section>
         </div>
 
