@@ -21,11 +21,6 @@ import { TransactionList } from "./TransactionList";
 import { AddTransaction } from "./AddTransaction";
 import SlideButton from "@/components/ui/slide-button";
 import { EditAccount } from "./EditAccount";
-import { SpendingChart } from "./SpendingChart";
-import { SpendingTrendChart } from "./SpendingTrendChart";
-import { CategoryTrendChart } from "./CategoryTrendChart";
-import { WeeklyComparisonChart } from "./WeeklyComparisonChart";
-import { MonthlyComparisonChart } from "./MonthlyComparisonChart";
 import { TransferFunds } from "./TransferFunds";
 import { ThemeToggle } from "./ThemeToggle";
 import { BottomNavigation } from "./BottomNavigation";
@@ -392,19 +387,6 @@ const Dashboard = () => {
           </div>
         </section>
 
-        <section className="mt-4 rounded-[28px] border border-border bg-card p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]" data-tour="spending-trend">
-          <div className="flex items-center justify-between gap-2">
-            <div>
-              <h2 className="text-[15px] font-semibold text-foreground">Income vs Expense Trend</h2>
-              <p className="text-[11px] text-muted-foreground">View monthly or 30-day breakdown</p>
-            </div>
-          </div>
-
-          <div className="mt-4 w-full rounded-2xl bg-muted/40 p-3 min-h-[250px] sm:min-h-[280px] dark:bg-black/20">
-            <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
-          </div>
-        </section>
-
         <section className="mt-4 rounded-[28px] border border-border bg-card p-4 shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]" data-tour="category-trend">
           <div className="flex items-center justify-between gap-2">
             <div>
@@ -414,46 +396,40 @@ const Dashboard = () => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-8 rounded-full px-3 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-300 dark:hover:bg-white/10 dark:hover:text-white"
+              className="h-8 rounded-full px-3 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium hover:bg-muted"
               onClick={() => navigate("/reports")}
             >
-              Reports
+              Full Reports →
             </Button>
           </div>
 
-          <div className="mt-4 grid gap-4">
-            <div className="mx-auto w-full rounded-2xl bg-muted/40 p-3 dark:bg-black/20">
-              <SpendingChart transactions={transactions} hideCardHeader={true} />
-            </div>
+          <div className="mt-4 space-y-2.5">
+            {spendingCategories.length === 0 ? (
+              <p className="rounded-2xl border border-border bg-muted/30 px-3 py-4 text-[13px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
+                No expense data yet.
+              </p>
+            ) : (
+              spendingCategories.slice(0, 4).map((item, index) => {
+                const total = spendingCategories.reduce((sum, entry) => sum + entry.amount, 0) || 1;
+                const width = `${Math.max(12, Math.round((item.amount / total) * 100))}%`;
 
-            <div className="space-y-2.5">
-              {spendingCategories.length === 0 ? (
-                <p className="rounded-2xl border border-border bg-muted/30 px-3 py-4 text-[13px] text-muted-foreground dark:border-white/10 dark:bg-white/5">
-                  No expense data yet.
-                </p>
-              ) : (
-                spendingCategories.map((item, index) => {
-                  const total = spendingCategories.reduce((sum, entry) => sum + entry.amount, 0) || 1;
-                  const width = `${Math.max(12, Math.round((item.amount / total) * 100))}%`;
-
-                  return (
-                    <div key={item.category} className="space-y-1.5 rounded-2xl border border-border bg-muted/30 p-3.5 dark:border-white/10 dark:bg-white/5">
-                      <div className="flex items-center justify-between gap-2 text-[13px]">
-                        <span className="truncate font-medium text-foreground">{item.category}</span>
-                        <span className="text-muted-foreground">{Math.round((item.amount / total) * 100)}%</span>
-                      </div>
-                      <div className="h-2.5 overflow-hidden rounded-full bg-muted dark:bg-white/10">
-                        <div
-                          className={`h-full rounded-full ${index % 3 === 0 ? "bg-emerald-500" : index % 3 === 1 ? "bg-cyan-500" : "bg-violet-500"}`}
-                          style={{ width }}
-                        />
-                      </div>
-                      <p className="text-[11px] text-muted-foreground">{formatMoney(item.amount)}</p>
+                return (
+                  <div key={item.category} className="space-y-1.5 rounded-2xl border border-border bg-muted/30 p-3.5 dark:border-white/10 dark:bg-white/5">
+                    <div className="flex items-center justify-between gap-2 text-[13px]">
+                      <span className="truncate font-medium text-foreground">{item.category}</span>
+                      <span className="text-muted-foreground">{Math.round((item.amount / total) * 100)}%</span>
                     </div>
-                  );
-                })
-              )}
-            </div>
+                    <div className="h-2.5 overflow-hidden rounded-full bg-muted dark:bg-white/10">
+                      <div
+                        className={`h-full rounded-full ${index % 3 === 0 ? "bg-emerald-500" : index % 3 === 1 ? "bg-cyan-500" : "bg-violet-500"}`}
+                        style={{ width }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">{formatMoney(item.amount)}</p>
+                  </div>
+                );
+              })
+            )}
           </div>
         </section>
 
@@ -680,38 +656,58 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Trend Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
-          <div data-tour="spending-trend" className="h-full">
-            <SpendingTrendChart transactions={transactions} />
-          </div>
-          <div data-tour="category-trend" className="h-full">
-            <CategoryTrendChart transactions={transactions} />
-          </div>
-        </div>
-
-        {/* Comparison Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
-          <div data-tour="weekly-comparison" className="h-full">
-            <WeeklyComparisonChart transactions={transactions} />
-          </div>
-          <div data-tour="monthly-comparison" className="h-full">
-            <MonthlyComparisonChart transactions={transactions} />
-          </div>
-        </div>
-
-        {/* Charts and Transactions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 auto-rows-fr">
-          <div data-tour="spending-chart" className="h-full">
-            <SpendingChart transactions={transactions} />
-          </div>
-          <div data-tour="transaction-list" className="h-full">
+        {/* Activity & Category Summary Section */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 items-start">
+          <div data-tour="transaction-list">
             <TransactionList 
               transactions={transactions} 
               accounts={accounts}
               onDeleteTransaction={handleDeleteTransaction}
             />
           </div>
+
+          <Card data-tour="category-trend" className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10 p-4 space-y-4">
+            <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-3">
+              <div>
+                <h3 className="text-base font-semibold text-foreground">Top Expense Categories</h3>
+                <p className="text-xs text-muted-foreground">Category breakdown from your spending</p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-xs rounded-full border-border text-foreground hover:bg-muted"
+                onClick={() => navigate("/reports")}
+              >
+                View Analytics & Reports →
+              </Button>
+            </div>
+
+            <div className="space-y-3">
+              {spendingCategories.length === 0 ? (
+                <p className="text-muted-foreground text-sm py-6 text-center">No expense categories yet.</p>
+              ) : (
+                spendingCategories.slice(0, 5).map((item, index) => {
+                  const total = spendingCategories.reduce((sum, entry) => sum + entry.amount, 0) || 1;
+                  const pct = Math.round((item.amount / total) * 100);
+
+                  return (
+                    <div key={item.category} className="space-y-1 rounded-xl border border-border bg-muted/20 p-3 dark:border-white/10 dark:bg-white/5">
+                      <div className="flex items-center justify-between text-xs font-medium">
+                        <span className="text-foreground">{item.category}</span>
+                        <span className="text-muted-foreground">{pct}% ({formatMoney(item.amount)})</span>
+                      </div>
+                      <div className="h-2 rounded-full bg-muted dark:bg-white/10 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${index % 3 === 0 ? "bg-emerald-500" : index % 3 === 1 ? "bg-cyan-500" : "bg-violet-500"}`}
+                          style={{ width: `${Math.max(8, pct)}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </Card>
         </div>
 
       </div>
