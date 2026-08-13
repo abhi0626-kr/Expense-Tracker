@@ -90,7 +90,7 @@ export const SpendingTrendChart = ({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
-        <div className="bg-card border border-border rounded-xl p-3 shadow-xl backdrop-blur text-xs space-y-1 text-card-foreground dark:bg-slate-900/95 dark:border-white/10">
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xl text-xs space-y-1 text-card-foreground dark:bg-slate-900 dark:border-white/10">
           <p className="font-semibold text-foreground border-b border-border pb-1 dark:text-white dark:border-white/10">{label}</p>
           {payload.map((entry: any) => (
             <div key={entry.name} className="flex items-center justify-between gap-3">
@@ -110,7 +110,7 @@ export const SpendingTrendChart = ({
   };
 
   const content = (
-    <div className="w-full h-full min-h-[240px] sm:min-h-[280px] flex flex-col justify-between">
+    <div className="w-full flex flex-col justify-between overflow-hidden">
       <div className="flex items-center justify-between gap-2 mb-3">
         <span className="text-xs text-muted-foreground font-medium">
           {timeframe === "month" ? "Current Month Trend" : "Last 30 Days Trend"}
@@ -144,7 +144,7 @@ export const SpendingTrendChart = ({
       {chartData.every((d) => d.Expenses === 0 && d.Income === 0) ? (
         <p className="text-muted-foreground text-center py-12 text-sm">No transaction data to display for this period</p>
       ) : (
-        <div className="h-[240px] sm:h-[280px] w-full">
+        <div className="h-[220px] sm:h-[260px] w-full overflow-hidden">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 25 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />

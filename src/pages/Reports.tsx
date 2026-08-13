@@ -80,13 +80,7 @@ const Reports = () => {
 
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-background pb-24 md:pb-8">
-        {/* Background glow effects */}
-        <div className="pointer-events-none fixed inset-0 overflow-hidden">
-          <div className="absolute -left-20 top-0 h-72 w-72 rounded-full bg-emerald-500/10 blur-3xl" />
-          <div className="absolute right-0 top-32 h-80 w-80 rounded-full bg-cyan-500/10 blur-3xl" />
-        </div>
-
+      <div className="min-h-screen bg-background bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/5 via-background to-background pb-32 md:pb-8">
         <div className="container mx-auto px-4 py-4 md:py-6 space-y-6 relative">
           {/* Header */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">

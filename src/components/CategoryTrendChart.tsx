@@ -125,7 +125,7 @@ export const CategoryTrendChart = ({ transactions, title = "Category Trend & Dat
       const net = dataPoint.income - dataPoint.expenses;
 
       return (
-        <div className="bg-card border border-border rounded-xl p-3 shadow-xl backdrop-blur text-xs space-y-1.5 min-w-[160px] text-card-foreground dark:bg-slate-900/95 dark:border-white/10">
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xl text-xs space-y-1.5 min-w-[160px] text-card-foreground dark:bg-slate-900 dark:border-white/10">
           <p className="font-semibold text-foreground border-b border-border pb-1 dark:text-white dark:border-white/10">
             {dataPoint.fullDateStr || dataPoint.displayDate}
           </p>
@@ -235,33 +235,33 @@ export const CategoryTrendChart = ({ transactions, title = "Category Trend & Dat
         </div>
 
         {/* Dynamic Period Summary Metric Cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-          <div className="p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10">
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Earned</span>
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+        <div className="grid grid-cols-3 gap-2 text-xs">
+          <div className="p-2.5 sm:p-3 rounded-xl border border-emerald-500/20 bg-emerald-500/10 min-w-0">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground">
+              <span className="truncate">Earned</span>
+              <TrendingUp className="h-3 w-3 text-emerald-500 shrink-0" />
             </div>
-            <p className="mt-1 text-sm font-semibold text-emerald-600 dark:text-emerald-300">
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-emerald-600 dark:text-emerald-300 truncate">
               +{formatMoney(periodStats.income)}
             </p>
           </div>
 
-          <div className="p-3 rounded-xl border border-rose-500/20 bg-rose-500/10">
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Spent</span>
-              <TrendingDown className="h-3.5 w-3.5 text-rose-500" />
+          <div className="p-2.5 sm:p-3 rounded-xl border border-rose-500/20 bg-rose-500/10 min-w-0">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground">
+              <span className="truncate">Spent</span>
+              <TrendingDown className="h-3 w-3 text-rose-500 shrink-0" />
             </div>
-            <p className="mt-1 text-sm font-semibold text-rose-600 dark:text-rose-300">
+            <p className="mt-1 text-xs sm:text-sm font-semibold text-rose-600 dark:text-rose-300 truncate">
               -{formatMoney(periodStats.expenses)}
             </p>
           </div>
 
-          <div className="col-span-2 sm:col-span-1 p-3 rounded-xl border border-primary/20 bg-primary/10">
-            <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-              <span>Net Savings</span>
-              <Wallet className="h-3.5 w-3.5 text-primary" />
+          <div className="p-2.5 sm:p-3 rounded-xl border border-primary/20 bg-primary/10 min-w-0">
+            <div className="flex items-center justify-between text-[10px] sm:text-[11px] text-muted-foreground">
+              <span className="truncate">Net</span>
+              <Wallet className="h-3 w-3 text-primary shrink-0" />
             </div>
-            <p className={`mt-1 text-sm font-semibold ${periodStats.net >= 0 ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
+            <p className={`mt-1 text-xs sm:text-sm font-semibold truncate ${periodStats.net >= 0 ? "text-emerald-600 dark:text-emerald-300" : "text-rose-600 dark:text-rose-300"}`}>
               {periodStats.net >= 0 ? "+" : "-"}{formatMoney(periodStats.net)}
             </p>
           </div>
@@ -273,7 +273,7 @@ export const CategoryTrendChart = ({ transactions, title = "Category Trend & Dat
             No transaction records found{startDate || endDate ? " for selected dates" : ""}.
           </p>
         ) : (
-          <div className="h-[200px] md:h-[260px] w-full">
+          <div className="h-[220px] sm:h-[260px] w-full overflow-hidden">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={chartData} margin={{ top: 10, right: 10, left: -10, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />

@@ -21,7 +21,7 @@ export const BottomNavigation = ({ onAddClick }: BottomNavigationProps) => {
 
   return (
     <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-[430px] px-3 pb-3 pt-2">
-      <div className="flex items-end justify-between rounded-[28px] border border-border bg-card/90 px-2 py-2 text-card-foreground shadow-xl backdrop-blur-xl dark:border-white/10 dark:bg-slate-950/90 dark:shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <div className="flex items-end justify-between rounded-[28px] border border-border bg-card/95 px-2 py-2 text-card-foreground shadow-2xl dark:border-white/10 dark:bg-slate-950/95 dark:shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
         {/* Dashboard */}
         <button
           type="button"
