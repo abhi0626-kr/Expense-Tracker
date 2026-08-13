@@ -11,10 +11,7 @@ import {
   WalletIcon,
   PieChartIcon,
   BarChart3Icon,
-  LayoutDashboardIcon,
   FileSpreadsheetIcon,
-  TargetIcon,
-  UserIcon,
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { SpendingTrendChart } from "@/components/SpendingTrendChart";
@@ -190,17 +187,11 @@ const Reports = () => {
               </CardHeader>
               <CardContent className="pt-2">
                 {period === "monthly" ? (
-                  <div className="h-64 md:h-80 w-full">
-                    <MonthlyComparisonChart transactions={transactions} />
-                  </div>
+                  <MonthlyComparisonChart transactions={transactions} hideCardHeader={true} />
                 ) : period === "weekly" ? (
-                  <div className="h-64 md:h-80 w-full">
-                    <WeeklyComparisonChart transactions={transactions} />
-                  </div>
+                  <WeeklyComparisonChart transactions={transactions} hideCardHeader={true} />
                 ) : (
-                  <div className="w-full">
-                    <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
-                  </div>
+                  <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
                 )}
               </CardContent>
             </Card>
@@ -255,19 +246,7 @@ const Reports = () => {
 
           {/* Section 3: Monthly & Category Trends */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10 h-full flex flex-col justify-between">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base md:text-lg font-semibold">
-                  Monthly Financial Comparison
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex-1">
-                <div className="h-64 sm:h-80 w-full">
-                  <MonthlyComparisonChart transactions={transactions} />
-                </div>
-              </CardContent>
-            </Card>
-
+            <MonthlyComparisonChart transactions={transactions} />
             <CategoryTrendChart transactions={transactions} />
           </section>
         </div>
