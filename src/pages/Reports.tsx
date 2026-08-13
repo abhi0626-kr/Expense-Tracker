@@ -115,7 +115,7 @@ const Reports = () => {
           </div>
 
           {/* Time Period Tabs */}
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-center my-2 sm:my-4">
             <Tabs value={period} onValueChange={(val) => setPeriod(val as any)} className="w-full sm:w-auto">
               <TabsList className="grid grid-cols-3 w-full sm:w-auto">
                 <TabsTrigger value="30d" className="text-xs">30 Days</TabsTrigger>
@@ -126,7 +126,7 @@ const Reports = () => {
           </div>
 
           {/* Summary Metric Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 my-3 sm:my-5">
             <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
               <CardContent className="p-4">
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
@@ -177,15 +177,15 @@ const Reports = () => {
           </div>
 
           {/* Section 1: Income vs Expense Trend */}
-          <section id="income-vs-expense" className="space-y-3">
+          <section id="income-vs-expense" className="space-y-3 pt-2">
             <Card className="bg-card border-border shadow-sm text-card-foreground dark:bg-slate-950/80 dark:border-white/10">
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base md:text-lg font-semibold flex items-center gap-2">
-                  <TrendingUpIcon className="w-5 h-5 text-emerald-500" />
+              <CardHeader className="pb-2 pt-4 border-b border-border/40">
+                <CardTitle className="text-sm sm:text-base md:text-lg font-semibold flex items-center gap-2">
+                  <TrendingUpIcon className="w-4 h-4 sm:w-5 sm:h-5 text-emerald-500 shrink-0" />
                   Income vs Expenses Trend ({period === "30d" ? "Last 30 Days" : period === "monthly" ? "Monthly Comparison" : "Weekly Comparison"})
                 </CardTitle>
               </CardHeader>
-              <CardContent className="pt-2">
+              <CardContent className="pt-3">
                 {period === "monthly" ? (
                   <MonthlyComparisonChart transactions={transactions} hideCardHeader={true} />
                 ) : period === "weekly" ? (

@@ -110,10 +110,10 @@ export const SpendingTrendChart = ({
   };
 
   const content = (
-    <div className="w-full flex flex-col justify-between overflow-hidden">
-      <div className="flex items-center justify-between gap-2 mb-3">
-        <span className="text-xs text-muted-foreground font-medium">
-          {timeframe === "month" ? "Current Month Trend" : "Last 30 Days Trend"}
+    <div className="w-full flex flex-col justify-between overflow-hidden pt-1">
+      <div className="flex items-center justify-between gap-2 mb-4">
+        <span className="text-[11px] sm:text-xs text-muted-foreground font-medium">
+          {timeframe === "month" ? "Current Month Breakdown" : "30-Day Breakdown"}
         </span>
         <div className="flex items-center gap-1 rounded-lg border border-border bg-muted/40 p-0.5 text-[11px]">
           <button
