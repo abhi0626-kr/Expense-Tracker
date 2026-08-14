@@ -33,6 +33,7 @@ import { useOnboarding } from "@/hooks/useOnboarding";
 import { dashboardTourSteps } from "@/utils/tourSteps";
 import { supabase } from "@/integrations/supabase/client";
 import { CallBackProps, STATUS } from "react-joyride";
+import { getPinnedAccountIds } from "@/lib/pinnedAccount";
 
 const ADD_TRANSACTION_DRAFT_KEY = "expense-tracker:add-transaction-draft";
 
@@ -70,6 +71,22 @@ const Dashboard = () => {
     updateAccount,
     transferFunds
   } = useExpenseData();
+  const [pinnedAccountIds, setPinnedAccountIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    try {
+      const key = `expense-tracker:pinned-account:${user?.id}`;
+      const v = user ? getPinnedAccountIds(user.id) : [];
+      setPinnedAccountIds(v || []);
+      const onStorage = (e: StorageEvent) => {
+        if (e.key === key) setPinnedAccountIds(getPinnedAccountIds(user?.id));
+      };
+      window.addEventListener('storage', onStorage);
+      return () => window.removeEventListener('storage', onStorage);
+    } catch (e) {
+      // ignore
+    }
+  }, [user?.id, accounts]);
   const { alerts: budgetAlerts } = useBudgets();
   const [showAddTransaction, setShowAddTransaction] = useState(false);
   const [showTransferFunds, setShowTransferFunds] = useState(false);
@@ -276,6 +293,14 @@ const Dashboard = () => {
           </div>
         </header>
 
+        {/* Debug: show pinned ids and account ids (remove in prod) */}
+        <div className="mt-2 px-2">
+          <div className="text-[11px] text-muted-foreground">Debug: pinned IDs</div>
+          <pre className="text-xs text-foreground bg-muted/20 p-2 rounded-md max-w-full overflow-auto">{JSON.stringify(pinnedAccountIds)}</pre>
+          <div className="text-[11px] text-muted-foreground mt-2">Debug: account ids (first 6)</div>
+          <pre className="text-xs text-foreground bg-muted/20 p-2 rounded-md max-w-full overflow-auto">{JSON.stringify(accounts.slice(0,6).map(a=>a.id))}</pre>
+        </div>
+
         {budgetAlerts && budgetAlerts.length > 0 && (
           <div className="mt-3 space-y-2">
             {budgetAlerts.slice(0, 2).map((alert) => (
@@ -350,40 +375,21 @@ const Dashboard = () => {
           </div>
 
           <div className="space-y-2.5">
-            {accounts.slice(0, 3).map((account) => (
-              <Card
-                key={account.id}
-                className="rounded-[22px] border-border bg-card shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
-              >
-                <CardContent className="p-3.5">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="flex min-w-0 items-center gap-3">
-                      <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br ${account.color}`}>
-                        <WalletIcon className="h-[22px] w-[22px] text-white" />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="truncate text-[15px] font-semibold text-foreground">{account.name}</p>
-                        <p className="text-[11px] text-muted-foreground">{account.type}</p>
-                      </div>
-                    </div>
+            {(() => {
+              if (!accounts || accounts.length === 0) return null;
+              if (pinnedAccountIds && pinnedAccountIds.length > 0) {
+                const pinned = accounts.filter(a => pinnedAccountIds.includes(a.id));
+                const others = accounts.filter(a => !pinnedAccountIds.includes(a.id));
+                const list = [...pinned, ...others].slice(0, 3);
+                return list.map((account) => (
+                  <AccountCard key={account.id} account={account} isPinned={pinnedAccountIds.includes(account.id)} onEditAccount={setEditingAccount} />
+                ));
+              }
 
-                    <div className="text-right">
-                      <p className={`text-[15px] font-semibold ${account.balance < 0 ? "text-rose-600 dark:text-rose-300" : "text-emerald-600 dark:text-emerald-300"}`}>
-                        {formatMoney(account.balance)}
-                      </p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingAccount(account)}
-                        className="mt-1 h-7 rounded-full px-2 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground dark:text-slate-400 dark:hover:bg-white/10 dark:hover:text-white"
-                      >
-                        Edit
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+              return accounts.slice(0, 3).map((account) => (
+                <AccountCard key={account.id} account={account} isPinned={false} onEditAccount={setEditingAccount} />
+              ));
+            })()}
           </div>
         </section>
 
@@ -485,7 +491,7 @@ const Dashboard = () => {
           </div>
         </section>
 
-        <BottomNavigation onAddClick={() => setShowAddTransaction(true)} />
+        <BottomNavigation onAddClick={() => setShowAddTransaction(true)} onTransferClick={() => setShowTransferFunds(true)} />
       </div>
 
       <div className="hidden md:block container mx-auto px-4 py-6 space-y-6">
@@ -646,13 +652,20 @@ const Dashboard = () => {
         <div data-tour="accounts-section" className="space-y-3 md:space-y-4">
           <h2 className="text-lg md:text-xl font-semibold text-foreground">Your Accounts</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
-            {accounts.slice(0, 3).map((account) => (
-              <AccountCard 
-                key={account.id} 
-                account={account} 
-                onEditAccount={setEditingAccount}
-              />
-            ))}
+            {(() => {
+              if (!accounts || accounts.length === 0) return null;
+              if (pinnedAccountIds && pinnedAccountIds.length > 0) {
+                const pinned = accounts.filter(a => pinnedAccountIds.includes(a.id));
+                const others = accounts.filter(a => !pinnedAccountIds.includes(a.id));
+                const list = [...pinned, ...others].slice(0, 3);
+                return list.map(account => (
+                  <AccountCard key={account.id} account={account} isPinned={pinnedAccountIds.includes(account.id)} onEditAccount={setEditingAccount} />
+                ));
+              }
+              return accounts.slice(0, 3).map(account => (
+                <AccountCard key={account.id} account={account} isPinned={false} onEditAccount={setEditingAccount} />
+              ));
+            })()}
           </div>
         </div>
 

@@ -1,18 +1,26 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Account } from "@/hooks/useExpenseData";
-import { CreditCardIcon, EditIcon } from "lucide-react";
+import { CreditCardIcon, EditIcon, Star } from "lucide-react";
 
 interface AccountCardProps {
   account: Account;
   onEditAccount: (account: Account) => void;
+  isPinned?: boolean;
 }
 
-export const AccountCard = ({ account, onEditAccount }: AccountCardProps) => {
+export const AccountCard = ({ account, onEditAccount, isPinned }: AccountCardProps) => {
   const isNegative = account.balance < 0;
   
   return (
     <Card className="bg-gradient-card shadow-card-shadow hover:shadow-financial transition-all duration-200 relative group">
+      {isPinned && (
+        <div className="absolute top-2 right-2">
+          <div className="h-8 w-8 rounded-full bg-primary/90 flex items-center justify-center shadow-md">
+            <Star className="w-4 h-4 text-white" />
+          </div>
+        </div>
+      )}
       <CardContent className="p-6">
         <div className="flex items-center justify-between mb-4">
           <div className={`p-3 rounded-full bg-gradient-to-br ${account.color}`}>

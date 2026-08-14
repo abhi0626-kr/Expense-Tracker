@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +44,9 @@ import {
   Eraser,
 } from "lucide-react";
 import { Account } from "@/hooks/useExpenseData";
+import { useAuth } from "@/hooks/useAuth";
+import { Star, StarOff } from "lucide-react";
+import { getPinnedAccountIds, setPinnedAccountIds } from "@/lib/pinnedAccount";
 
 const ACCOUNT_TYPES = [
   { value: "Checking", label: "Checking Account", icon: Landmark },
@@ -83,6 +86,31 @@ export const AccountManager = ({
   onDeleteAccount,
   onRemoveDuplicates,
 }: AccountManagerProps) => {
+  const { user } = useAuth();
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+
+  useEffect(() => {
+    setPinnedIds(getPinnedAccountIds(user?.id));
+  }, [user?.id]);
+
+  const togglePin = (accountId: string) => {
+    if (!user?.id) return;
+    const isPinned = pinnedIds.includes(accountId);
+    if (isPinned) {
+      const next = pinnedIds.filter((id) => id !== accountId);
+      setPinnedAccountIds(user.id, next);
+      setPinnedIds(next);
+      return;
+    }
+    // limit pins to 3
+    if (pinnedIds.length >= 3) {
+      window.alert("You can pin up to 3 accounts.");
+      return;
+    }
+    const next = [accountId, ...pinnedIds];
+    setPinnedAccountIds(user.id, next);
+    setPinnedIds(next);
+  };
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [formData, setFormData] = useState({
@@ -357,6 +385,15 @@ export const AccountManager = ({
                         onClick={() => handleEdit(account)}
                       >
                         <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-8 px-2"
+                        onClick={() => togglePin(account.id)}
+                        title={pinnedIds.includes(account.id) ? "Unpin account" : "Pin account"}
+                      >
+                        {pinnedIds.includes(account.id) ? <Star className="h-4 w-4 text-yellow-400" /> : <StarOff className="h-4 w-4" />}
                       </Button>
                       <AlertDialog>
                         <AlertDialogTrigger asChild>

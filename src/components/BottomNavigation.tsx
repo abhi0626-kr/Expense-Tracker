@@ -1,11 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileSpreadsheet, Plus, BarChart3, SlidersHorizontal } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Plus, BarChart3, SlidersHorizontal, ArrowRightLeft } from "lucide-react";
 
 interface BottomNavigationProps {
   onAddClick?: () => void;
+  onTransferClick?: () => void;
 }
 
-export const BottomNavigation = ({ onAddClick }: BottomNavigationProps) => {
+export const BottomNavigation = ({ onAddClick, onTransferClick }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -54,6 +55,21 @@ export const BottomNavigation = ({ onAddClick }: BottomNavigationProps) => {
           title="Add Transaction"
         >
           <Plus className="h-7 w-7 text-white stroke-[2.5]" />
+        </button>
+
+        {/* Transfer (mobile) */}
+        <button
+          type="button"
+          onClick={() => {
+            if (onTransferClick) onTransferClick();
+            else navigate("/");
+          }}
+          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
+            isActive("/transfer") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
+          }`}
+        >
+          <ArrowRightLeft className="h-5 w-5" />
+          <span>Transfer</span>
         </button>
 
         {/* Reports */}
