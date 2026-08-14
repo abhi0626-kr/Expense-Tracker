@@ -47,6 +47,7 @@ import { Account } from "@/hooks/useExpenseData";
 import { useAuth } from "@/hooks/useAuth";
 import { Star, StarOff } from "lucide-react";
 import { getPinnedAccountIds, setPinnedAccountIds } from "@/lib/pinnedAccount";
+import { useToast } from "@/hooks/use-toast";
 
 const ACCOUNT_TYPES = [
   { value: "Checking", label: "Checking Account", icon: Landmark },
@@ -88,6 +89,7 @@ export const AccountManager = ({
 }: AccountManagerProps) => {
   const { user } = useAuth();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const { toast } = useToast();
 
   useEffect(() => {
     setPinnedIds(getPinnedAccountIds(user?.id));
@@ -104,7 +106,10 @@ export const AccountManager = ({
     }
     // limit pins to 3
     if (pinnedIds.length >= 3) {
-      window.alert("You can pin up to 3 accounts.");
+      toast({
+        title: "Maximum pinned accounts",
+        description: "You can pin up to 3 accounts.",
+      });
       return;
     }
     const next = [accountId, ...pinnedIds];

@@ -293,13 +293,7 @@ const Dashboard = () => {
           </div>
         </header>
 
-        {/* Debug: show pinned ids and account ids (remove in prod) */}
-        <div className="mt-2 px-2">
-          <div className="text-[11px] text-muted-foreground">Debug: pinned IDs</div>
-          <pre className="text-xs text-foreground bg-muted/20 p-2 rounded-md max-w-full overflow-auto">{JSON.stringify(pinnedAccountIds)}</pre>
-          <div className="text-[11px] text-muted-foreground mt-2">Debug: account ids (first 6)</div>
-          <pre className="text-xs text-foreground bg-muted/20 p-2 rounded-md max-w-full overflow-auto">{JSON.stringify(accounts.slice(0,6).map(a=>a.id))}</pre>
-        </div>
+        {/* debug panel removed */}
 
         {budgetAlerts && budgetAlerts.length > 0 && (
           <div className="mt-3 space-y-2">
