@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "./useAuth";
 import { useToast } from "./use-toast";
+import { getAccountOrder, setAccountOrder, sortAccountsByOrder } from "@/lib/accountOrder";
 
 export interface Account {
   id: string;
@@ -41,6 +42,18 @@ export const useExpenseData = () => {
   const timeColumnMissingRef = useRef(false);
   const lastAddedTransactionRef = useRef<{ payload: string; time: number } | null>(null);
 
+  // Sync account order when changed across components/tabs
+  useEffect(() => {
+    if (!user?.id) return;
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === `expense-tracker:account-order:${user.id}`) {
+        setAccounts((prev) => sortAccountsByOrder(prev, getAccountOrder(user.id)));
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+    return () => window.removeEventListener("storage", handleStorage);
+  }, [user?.id]);
+
   // Fetch accounts
   const fetchAccounts = async () => {
     if (!user) return;
@@ -54,13 +67,14 @@ export const useExpenseData = () => {
 
       if (error) throw error;
 
-      setAccounts(data.map(account => ({
+      const mapped = data.map((account) => ({
         id: account.id,
         name: account.name,
         type: account.type,
         balance: account.balance ? parseFloat(account.balance.toString()) : 0,
-        color: account.color
-      })));
+        color: account.color,
+      }));
+      setAccounts(sortAccountsByOrder(mapped, getAccountOrder(user.id)));
     } catch (error: any) {
       toast({
         title: "Error fetching accounts",
@@ -879,6 +893,13 @@ export const useExpenseData = () => {
     }
   };
 
+  const reorderAccounts = (newAccounts: Account[]) => {
+    setAccounts(newAccounts);
+    if (user?.id) {
+      setAccountOrder(user.id, newAccounts.map((a) => a.id));
+    }
+  };
+
   return {
     accounts,
     transactions,
@@ -890,6 +911,7 @@ export const useExpenseData = () => {
     deleteAccount,
     removeDuplicateAccounts,
     transferFunds,
+    reorderAccounts,
     refetch: () => {
       fetchAccounts();
       fetchTransactions();

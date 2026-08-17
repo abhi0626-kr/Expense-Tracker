@@ -42,12 +42,15 @@ import {
   Smartphone,
   Banknote,
   Eraser,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Account } from "@/hooks/useExpenseData";
 import { useAuth } from "@/hooks/useAuth";
-import { Star, StarOff } from "lucide-react";
+import { Star, StarOff, GripVertical } from "lucide-react";
 import { getPinnedAccountIds, setPinnedAccountIds } from "@/lib/pinnedAccount";
 import { useToast } from "@/hooks/use-toast";
+import { Reorder } from "framer-motion";
+import { TransferFunds } from "./TransferFunds";
 
 const ACCOUNT_TYPES = [
   { value: "Checking", label: "Checking Account", icon: Landmark },
@@ -78,6 +81,8 @@ interface AccountManagerProps {
   onUpdateAccount: (accountId: string, account: Omit<Account, "id">) => Promise<void>;
   onDeleteAccount: (accountId: string) => Promise<void>;
   onRemoveDuplicates?: () => Promise<void>;
+  onReorderAccounts?: (accounts: Account[]) => void;
+  onTransferFunds?: (fromAccountId: string, toAccountId: string, amount: number, description?: string, date?: string, time?: string) => Promise<boolean | void>;
 }
 
 export const AccountManager = ({
@@ -86,10 +91,13 @@ export const AccountManager = ({
   onUpdateAccount,
   onDeleteAccount,
   onRemoveDuplicates,
+  onReorderAccounts,
+  onTransferFunds,
 }: AccountManagerProps) => {
   const { user } = useAuth();
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const { toast } = useToast();
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
 
   useEffect(() => {
     setPinnedIds(getPinnedAccountIds(user?.id));
@@ -186,11 +194,25 @@ export const AccountManager = ({
               <Wallet className="h-5 w-5 text-primary" />
               Account Manager
             </CardTitle>
-            <CardDescription className="text-xs sm:text-sm">
-              Manage your wallets and bank accounts
+            <CardDescription className="text-xs sm:text-sm flex items-center gap-1.5 flex-wrap">
+              <span>Manage your wallets and bank accounts</span>
+              {accounts.length > 1 && (
+                <span className="text-[11px] text-muted-foreground/80 hidden sm:inline">• Hold & drag to reorder</span>
+              )}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            {accounts.length >= 2 && onTransferFunds && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="border-border text-foreground hover:bg-muted"
+                onClick={() => setIsTransferDialogOpen(true)}
+              >
+                <ArrowRightLeft className="h-4 w-4 mr-1.5 text-cyan-500 dark:text-cyan-400" />
+                <span>Transfer</span>
+              </Button>
+            )}
             {onRemoveDuplicates && accounts.length > 3 && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
@@ -349,95 +371,144 @@ export const AccountManager = ({
             <p className="text-sm">Add your first account to start tracking</p>
           </div>
         ) : (
-          <div className="space-y-3">
+          <Reorder.Group
+            axis="y"
+            values={accounts}
+            onReorder={(newOrder) => {
+              if (onReorderAccounts) {
+                onReorderAccounts(newOrder);
+              }
+            }}
+            className="space-y-3"
+          >
             {accounts.map((account) => (
-              <div
+              <Reorder.Item
                 key={account.id}
-                className="p-3 sm:p-4 border rounded-lg bg-card/50"
+                value={account}
+                className="select-none rounded-xl border border-border bg-card/70 p-3 sm:p-4 shadow-sm backdrop-blur-sm transition-colors hover:bg-card/90 dark:border-white/10 dark:bg-slate-900/60 dark:hover:bg-slate-900/90 active:shadow-lg touch-none"
+                whileDrag={{
+                  scale: 1.02,
+                  boxShadow: "0 14px 36px -6px rgba(0, 0, 0, 0.4)",
+                  borderColor: "rgba(124, 58, 237, 0.6)",
+                  zIndex: 50,
+                }}
               >
-                <div className="flex items-center justify-between gap-3">
-                  {/* Account Info */}
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2.5 sm:gap-3">
+                  {/* Account Info + Drag Grip */}
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
                     <div
-                      className={`h-10 w-10 sm:h-12 sm:w-12 rounded-lg bg-gradient-to-br ${account.color} flex items-center justify-center text-white shrink-0`}
+                      className="cursor-grab active:cursor-grabbing p-1 -ml-1 text-muted-foreground/60 hover:text-foreground touch-none shrink-0"
+                      title="Hold & drag to reorder"
+                    >
+                      <GripVertical className="h-5 w-5" />
+                    </div>
+
+                    <div
+                      className={`h-10 w-10 sm:h-11 sm:w-11 rounded-xl bg-gradient-to-br ${account.color} flex items-center justify-center text-white shrink-0 shadow-sm`}
                     >
                       {getAccountIcon(account.type)}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h4 className="font-semibold text-sm sm:text-base truncate">
-                        {account.name}
-                      </h4>
-                      <Badge variant="outline" className="text-xs px-1.5 py-0">
-                        {account.type}
-                      </Badge>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-semibold text-sm sm:text-base text-foreground truncate">
+                          {account.name}
+                        </h4>
+                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 font-medium shrink-0">
+                          {account.type}
+                        </Badge>
+                      </div>
+                      <p
+                        className={`text-xs sm:text-sm font-bold mt-0.5 whitespace-nowrap ${
+                          account.balance >= 0 ? "text-emerald-500 dark:text-emerald-400" : "text-rose-500 dark:text-rose-400"
+                        }`}
+                      >
+                        ₹{account.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
+                      </p>
                     </div>
                   </div>
 
-                  {/* Balance + Actions */}
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`font-bold text-sm sm:text-base whitespace-nowrap ${
-                        account.balance >= 0 ? "text-green-500" : "text-red-500"
-                      }`}
+                  {/* Actions */}
+                  <div
+                    className="flex items-center gap-0.5 shrink-0"
+                    onPointerDown={(e) => e.stopPropagation()}
+                  >
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleEdit(account);
+                      }}
+                      title="Edit Account"
                     >
-                      ₹{account.balance.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
-                    </span>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => handleEdit(account)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => togglePin(account.id)}
-                        title={pinnedIds.includes(account.id) ? "Unpin account" : "Pin account"}
-                      >
-                        {pinnedIds.includes(account.id) ? <Star className="h-4 w-4 text-yellow-400" /> : <StarOff className="h-4 w-4" />}
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        togglePin(account.id);
+                      }}
+                      title={pinnedIds.includes(account.id) ? "Unpin account" : "Pin account"}
+                    >
+                      {pinnedIds.includes(account.id) ? (
+                        <Star className="h-4 w-4 fill-amber-400 text-amber-400" />
+                      ) : (
+                        <StarOff className="h-4 w-4" />
+                      )}
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-lg text-rose-500 hover:text-rose-600 hover:bg-rose-500/10"
+                          title="Delete Account"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Account?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete "{account.name}"?
+                            This action cannot be undone. Make sure there are no
+                            transactions linked to this account.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            className="bg-rose-500 hover:bg-rose-600"
+                            onClick={() => onDeleteAccount(account.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent className="max-w-[95vw] sm:max-w-md">
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Account?</AlertDialogTitle>
-                            <AlertDialogDescription>
-                              Are you sure you want to delete "{account.name}"?
-                              This action cannot be undone. Make sure there are no
-                              transactions linked to this account.
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction
-                              className="bg-red-500 hover:bg-red-600"
-                              onClick={() => onDeleteAccount(account.id)}
-                            >
-                              Delete
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 </div>
-              </div>
+              </Reorder.Item>
             ))}
-          </div>
+          </Reorder.Group>
         )}
       </CardContent>
+
+      {/* Transfer Funds Modal */}
+      {onTransferFunds && (
+        <TransferFunds
+          open={isTransferDialogOpen}
+          onOpenChange={setIsTransferDialogOpen}
+          accounts={accounts}
+          onTransfer={onTransferFunds}
+        />
+      )}
     </Card>
   );
 };

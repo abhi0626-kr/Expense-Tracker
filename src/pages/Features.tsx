@@ -50,7 +50,7 @@ const Features = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { signOut, user } = useAuth();
-  const { accounts, transactions, addTransaction, addAccount, updateAccount, deleteAccount, removeDuplicateAccounts } = useExpenseData();
+  const { accounts, transactions, addTransaction, addAccount, updateAccount, deleteAccount, removeDuplicateAccounts, reorderAccounts, transferFunds } = useExpenseData();
   const [profileImage, setProfileImage] = useState<string>("");
   const [activeTab, setActiveTab] = useState("accounts");
   const { run, stepIndex, setStepIndex, completeTour, skipTour } = useOnboarding();
@@ -182,7 +182,7 @@ const Features = () => {
       </header>
 
       {/* Main Content */}
-      <main className="container px-3 sm:px-4 py-4 sm:py-6">
+      <main className="container px-3 sm:px-4 py-4 sm:py-6 pb-32 md:pb-12">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
           <TabsList className="grid w-full grid-cols-4 mb-4 sm:mb-6 h-10 sm:h-11">
             <TabsTrigger data-tour="accounts-tab" value="accounts" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
@@ -210,6 +210,8 @@ const Features = () => {
               onUpdateAccount={updateAccount}
               onDeleteAccount={deleteAccount}
               onRemoveDuplicates={removeDuplicateAccounts}
+              onReorderAccounts={reorderAccounts}
+              onTransferFunds={transferFunds}
             />
           </TabsContent>
 

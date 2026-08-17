@@ -258,7 +258,17 @@ const Dashboard = () => {
               className="h-10 flex-1 border-border bg-muted/40 text-foreground hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10"
               size="sm"
             >
-              Overview
+              Features
+            </Button>
+
+            <Button
+              onClick={() => setShowTransferFunds(true)}
+              variant="outline"
+              className="h-10 flex-1 border-border bg-muted/40 text-foreground hover:bg-muted dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10 flex items-center justify-center gap-1.5"
+              size="sm"
+            >
+              <ArrowRightLeft className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
+              <span>Transfer</span>
             </Button>
 
             <AlertDialog>

@@ -1,12 +1,12 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, FileSpreadsheet, Plus, BarChart3, SlidersHorizontal, ArrowRightLeft } from "lucide-react";
+import { LayoutDashboard, FileSpreadsheet, Plus, BarChart3, SlidersHorizontal } from "lucide-react";
 
 interface BottomNavigationProps {
   onAddClick?: () => void;
   onTransferClick?: () => void;
 }
 
-export const BottomNavigation = ({ onAddClick, onTransferClick }: BottomNavigationProps) => {
+export const BottomNavigation = ({ onAddClick }: BottomNavigationProps) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -20,80 +20,98 @@ export const BottomNavigation = ({ onAddClick, onTransferClick }: BottomNavigati
     }
   };
 
+  const isMoreActive = location.pathname === "/features" || location.pathname === "/profile";
+
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-[430px] px-3 pb-3 pt-2">
-      <div className="flex items-end justify-between rounded-[28px] border border-border bg-card/95 px-2 py-2 text-card-foreground shadow-2xl dark:border-white/10 dark:bg-slate-950/95 dark:shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+    <nav className="fixed inset-x-0 bottom-0 z-40 mx-auto max-w-[390px] px-3 pb-3 pt-1 pointer-events-none">
+      <div className="pointer-events-auto flex items-center justify-around rounded-full border border-border/70 bg-card/90 px-2 py-1.5 backdrop-blur-2xl shadow-[0_8px_32px_rgba(0,0,0,0.25)] dark:border-white/10 dark:bg-slate-950/90 dark:shadow-[0_16px_40px_rgba(0,0,0,0.6)]">
         {/* Dashboard */}
         <button
           type="button"
           onClick={() => navigate("/")}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
-            isActive("/") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
+          className={`group flex min-w-0 flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+            isActive("/")
+              ? "text-primary dark:text-violet-300 font-semibold"
+              : "text-muted-foreground/75 hover:text-foreground dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
-          <LayoutDashboard className="h-5 w-5" />
-          <span>Dashboard</span>
+          <div className="relative">
+            <LayoutDashboard className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110" />
+            {isActive("/") && (
+              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary dark:bg-violet-400" />
+            )}
+          </div>
+          <span className="mt-1 text-[10px] tracking-tight leading-none">Home</span>
         </button>
 
-        {/* Transactions / History */}
+        {/* History */}
         <button
           type="button"
           onClick={() => navigate("/transactions")}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
-            isActive("/transactions") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
+          className={`group flex min-w-0 flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+            isActive("/transactions")
+              ? "text-primary dark:text-violet-300 font-semibold"
+              : "text-muted-foreground/75 hover:text-foreground dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
-          <FileSpreadsheet className="h-5 w-5" />
-          <span>History</span>
+          <div className="relative">
+            <FileSpreadsheet className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110" />
+            {isActive("/transactions") && (
+              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary dark:bg-violet-400" />
+            )}
+          </div>
+          <span className="mt-1 text-[10px] tracking-tight leading-none">History</span>
         </button>
 
         {/* Center + Add Button */}
-        <button
-          type="button"
-          onClick={handleAddClick}
-          className="-mt-6 flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 via-cyan-500 to-emerald-400 text-white shadow-[0_18px_50px_rgba(124,58,237,0.45)] hover:scale-105 active:scale-95 transition-all"
-          title="Add Transaction"
-        >
-          <Plus className="h-7 w-7 text-white stroke-[2.5]" />
-        </button>
-
-        {/* Transfer (mobile) */}
-        <button
-          type="button"
-          onClick={() => {
-            if (onTransferClick) onTransferClick();
-            else navigate("/");
-          }}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
-            isActive("/transfer") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
-          }`}
-        >
-          <ArrowRightLeft className="h-5 w-5" />
-          <span>Transfer</span>
-        </button>
+        <div className="flex shrink-0 items-center justify-center px-1.5">
+          <button
+            type="button"
+            onClick={handleAddClick}
+            className="-mt-2.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-violet-600 via-indigo-500 to-cyan-400 text-white shadow-[0_4px_16px_rgba(124,58,237,0.4)] transition-all duration-200 hover:scale-105 active:scale-95 hover:shadow-[0_6px_20px_rgba(124,58,237,0.55)]"
+            title="Add Transaction"
+            aria-label="Add Transaction"
+          >
+            <Plus className="h-5 w-5 text-white stroke-[2.5]" />
+          </button>
+        </div>
 
         {/* Reports */}
         <button
           type="button"
           onClick={() => navigate("/reports")}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
-            isActive("/reports") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
+          className={`group flex min-w-0 flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+            isActive("/reports")
+              ? "text-primary dark:text-violet-300 font-semibold"
+              : "text-muted-foreground/75 hover:text-foreground dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
-          <BarChart3 className="h-5 w-5" />
-          <span>Reports</span>
+          <div className="relative">
+            <BarChart3 className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110" />
+            {isActive("/reports") && (
+              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary dark:bg-violet-400" />
+            )}
+          </div>
+          <span className="mt-1 text-[10px] tracking-tight leading-none">Reports</span>
         </button>
 
-        {/* More / Advanced Features */}
+        {/* More */}
         <button
           type="button"
           onClick={() => navigate("/features")}
-          className={`flex min-w-0 flex-1 flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all ${
-            isActive("/features") || isActive("/profile") ? "text-primary dark:text-violet-300 font-semibold" : "text-muted-foreground hover:text-foreground dark:text-slate-400 dark:hover:text-white"
+          className={`group flex min-w-0 flex-1 flex-col items-center justify-center py-1 transition-all active:scale-95 ${
+            isMoreActive
+              ? "text-primary dark:text-violet-300 font-semibold"
+              : "text-muted-foreground/75 hover:text-foreground dark:text-slate-400 dark:hover:text-slate-200"
           }`}
         >
-          <SlidersHorizontal className="h-5 w-5" />
-          <span>More</span>
+          <div className="relative">
+            <SlidersHorizontal className="h-[18px] w-[18px] transition-transform duration-200 group-hover:scale-110" />
+            {isMoreActive && (
+              <span className="absolute -bottom-1 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-primary dark:bg-violet-400" />
+            )}
+          </div>
+          <span className="mt-1 text-[10px] tracking-tight leading-none">More</span>
         </button>
       </div>
     </nav>

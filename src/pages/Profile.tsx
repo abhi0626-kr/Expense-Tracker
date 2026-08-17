@@ -217,7 +217,7 @@ const Profile = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background">
-        <div className="container mx-auto px-4 py-6 max-w-3xl">
+        <div className="container mx-auto px-4 py-6 pb-32 md:pb-8 max-w-3xl">
           {/* Header */}
           <div className="flex items-center gap-4 mb-6">
             <Button
