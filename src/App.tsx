@@ -13,6 +13,7 @@ import TransactionHistory from "./pages/TransactionHistory";
 import Profile from "./pages/Profile";
 import Features from "./pages/Features";
 import Reports from "./pages/Reports";
+import { GlobalShakeListener } from "./components/GlobalShakeListener";
 
 const queryClient = new QueryClient();
 
@@ -97,6 +98,7 @@ const App = () => (
           <Sonner />
           <BrowserRouter basename={import.meta.env.BASE_URL}>
             <ScrollToTop />
+            <GlobalShakeListener />
             <KeyedRoutes />
           </BrowserRouter>
         </TooltipProvider>

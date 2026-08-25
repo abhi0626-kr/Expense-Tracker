@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { ShakeSettingsCard } from "@/components/ShakeSettingsCard";
 import { ArrowLeftIcon, SaveIcon, Loader2, UploadIcon, UserIcon, BookOpen } from "lucide-react";
 
 interface ProfileData {
@@ -394,6 +395,11 @@ const Profile = () => {
               </form>
             </CardContent>
           </Card>
+
+          {/* Shake Gesture Settings */}
+          <div className="mt-6">
+            <ShakeSettingsCard />
+          </div>
 
           {/* Account Information */}
           <Card className="bg-gradient-card shadow-card-shadow mt-6">

@@ -118,6 +118,15 @@ const Dashboard = () => {
     if (params.get("add") === "true") {
       setShowAddTransaction(true);
     }
+
+    const handleOpenAddModal = () => {
+      setShowAddTransaction(true);
+    };
+
+    window.addEventListener("open-add-transaction-modal", handleOpenAddModal);
+    return () => {
+      window.removeEventListener("open-add-transaction-modal", handleOpenAddModal);
+    };
   }, [location.search]);
 
   useEffect(() => {
