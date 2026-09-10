@@ -26,6 +26,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { BottomNavigation } from "./BottomNavigation";
 import { OnboardingTour } from "./OnboardingTour";
 import { WelcomeDialog } from "./WelcomeDialog";
+import { AdvisorQuickWidget } from "./AdvisorQuickWidget";
 import { useAuth } from "@/hooks/useAuth";
 import { useExpenseData, Account, TransactionInput } from "@/hooks/useExpenseData";
 import { useBudgets } from "@/hooks/useBudgets";
@@ -311,6 +312,11 @@ const Dashboard = () => {
             </AlertDialog>
           </div>
         </header>
+
+        {/* AI Financial Insight Banner */}
+        <div className="mt-3">
+          <AdvisorQuickWidget />
+        </div>
 
         {/* debug panel removed */}
 

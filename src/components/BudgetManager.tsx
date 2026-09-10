@@ -29,10 +29,13 @@ import {
   TrendingUp,
   Target,
   Bell,
+  Wallet,
 } from "lucide-react";
 import { useBudgets, Budget } from "@/hooks/useBudgets";
+import { useExpenseData } from "@/hooks/useExpenseData";
 
 const EXPENSE_CATEGORIES = [
+  "All Categories",
   "Food & Dining",
   "Transportation",
   "Shopping",
@@ -60,11 +63,13 @@ export const BudgetManager = () => {
     markAlertAsRead,
     markAllAlertsAsRead,
   } = useBudgets();
+  const { accounts } = useExpenseData();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   const [formData, setFormData] = useState({
     category: "",
+    account_id: "all",
     amount: "",
     period: "monthly" as "weekly" | "monthly" | "yearly",
     alert_threshold: 80,
@@ -73,6 +78,7 @@ export const BudgetManager = () => {
   const resetForm = () => {
     setFormData({
       category: "",
+      account_id: "all",
       amount: "",
       period: "monthly",
       alert_threshold: 80,
@@ -84,6 +90,8 @@ export const BudgetManager = () => {
 
     if (editingBudget) {
       await updateBudget(editingBudget.id, {
+        category: formData.category,
+        account_id: formData.account_id,
         amount: parseFloat(formData.amount),
         period: formData.period,
         alert_threshold: formData.alert_threshold,
@@ -92,6 +100,7 @@ export const BudgetManager = () => {
     } else {
       await addBudget({
         category: formData.category,
+        account_id: formData.account_id,
         amount: parseFloat(formData.amount),
         period: formData.period,
         alert_threshold: formData.alert_threshold,
@@ -104,7 +113,8 @@ export const BudgetManager = () => {
 
   const handleEdit = (budget: Budget) => {
     setFormData({
-      category: budget.category,
+      category: budget.category || "All Categories",
+      account_id: budget.account_id || "all",
       amount: budget.amount.toString(),
       period: budget.period,
       alert_threshold: budget.alert_threshold,
@@ -195,7 +205,7 @@ export const BudgetManager = () => {
                 Budget Manager
               </CardTitle>
               <CardDescription className="text-xs sm:text-sm">
-                Set spending limits and track your progress
+                Set spending limits per account or per category
               </CardDescription>
             </div>
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -211,10 +221,34 @@ export const BudgetManager = () => {
                     {editingBudget ? "Edit Budget" : "Create New Budget"}
                   </DialogTitle>
                   <DialogDescription>
-                    Set a spending limit for a category
+                    Set a spending limit for a specific account or category
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4 py-4">
+                  {/* Account Selector */}
+                  <div className="space-y-2">
+                    <Label>Target Account</Label>
+                    <Select
+                      value={formData.account_id}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, account_id: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">🌐 All Accounts (Global)</SelectItem>
+                        {accounts.map((acc) => (
+                          <SelectItem key={acc.id} value={acc.id}>
+                            💳 {acc.name} (₹{acc.balance.toLocaleString("en-IN")})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {/* Category Selector */}
                   <div className="space-y-2">
                     <Label>Category</Label>
                     <Select
@@ -222,24 +256,21 @@ export const BudgetManager = () => {
                       onValueChange={(value) =>
                         setFormData({ ...formData, category: value })
                       }
-                      disabled={!!editingBudget}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select category" />
                       </SelectTrigger>
                       <SelectContent>
-                        {EXPENSE_CATEGORIES.filter(
-                          (cat) =>
-                            editingBudget?.category === cat ||
-                            !budgets.find((b) => b.category === cat)
-                        ).map((category) => (
+                        {EXPENSE_CATEGORIES.map((category) => (
                           <SelectItem key={category} value={category}>
-                            {category}
+                            {category === "All Categories" ? "🎯 All Categories (Overall)" : category}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Budget Amount */}
                   <div className="space-y-2">
                     <Label>Budget Amount (₹)</Label>
                     <Input
@@ -251,6 +282,8 @@ export const BudgetManager = () => {
                       }
                     />
                   </div>
+
+                  {/* Period */}
                   <div className="space-y-2">
                     <Label>Period</Label>
                     <Select
@@ -269,6 +302,8 @@ export const BudgetManager = () => {
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {/* Alert Threshold */}
                   <div className="space-y-2">
                     <Label>Alert at ({formData.alert_threshold}%)</Label>
                     <Input
@@ -308,72 +343,85 @@ export const BudgetManager = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {budgets.map((budget) => (
-                <div
-                  key={budget.id}
-                  className="p-3 sm:p-4 border rounded-lg space-y-3 bg-card/50"
-                >
-                  {/* Header: Category + Actions */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="font-semibold text-sm sm:text-base">{budget.category}</span>
-                      <Badge variant="outline" className="text-xs px-1.5 py-0">
-                        {budget.period}
-                      </Badge>
+              {budgets.map((budget) => {
+                const targetAccount = accounts.find((a) => a.id === budget.account_id);
+                const accountLabel = budget.account_id && budget.account_id !== "all"
+                  ? (targetAccount ? targetAccount.name : "Specific Account")
+                  : "All Accounts";
+
+                return (
+                  <div
+                    key={budget.id}
+                    className="p-3 sm:p-4 border rounded-lg space-y-3 bg-card/50"
+                  >
+                    {/* Header: Category + Account + Period + Actions */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="font-semibold text-sm sm:text-base">
+                          {budget.category || "All Categories"}
+                        </span>
+                        <Badge variant="secondary" className="text-xs px-2 py-0.5 border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10">
+                          <Wallet className="h-3 w-3 mr-1 inline-block" />
+                          {accountLabel}
+                        </Badge>
+                        <Badge variant="outline" className="text-xs px-1.5 py-0">
+                          {budget.period}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2"
+                          onClick={() => handleEdit(budget)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
+                          onClick={() => deleteBudget(budget.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2"
-                        onClick={() => handleEdit(budget)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-500/10"
-                        onClick={() => deleteBudget(budget.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                    
+                    {/* Progress Bar */}
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between text-xs sm:text-sm">
+                        <span className="text-muted-foreground">
+                          ₹{budget.spent.toLocaleString("en-IN")} / ₹{budget.amount.toLocaleString("en-IN")}
+                        </span>
+                        <span
+                          className={`font-semibold ${
+                            budget.percentage >= 100
+                              ? "text-red-500"
+                              : budget.percentage >= 80
+                              ? "text-yellow-500"
+                              : "text-green-500"
+                          }`}
+                        >
+                          {budget.percentage.toFixed(0)}%
+                        </span>
+                      </div>
+                      <Progress
+                        value={Math.min(budget.percentage, 100)}
+                        className={`h-2 ${getProgressColor(budget.percentage)}`}
+                      />
                     </div>
+                    
+                    {/* Exceeded Warning */}
+                    {budget.percentage >= 100 && (
+                      <p className="text-xs text-red-500 flex items-center gap-1 pt-1 border-t border-red-500/20">
+                        <AlertCircle className="h-3 w-3" />
+                        Exceeded by ₹{(budget.spent - budget.amount).toLocaleString("en-IN")}
+                      </p>
+                    )}
                   </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="space-y-1.5">
-                    <div className="flex justify-between text-xs sm:text-sm">
-                      <span className="text-muted-foreground">
-                        ₹{budget.spent.toLocaleString("en-IN")} / ₹{budget.amount.toLocaleString("en-IN")}
-                      </span>
-                      <span
-                        className={`font-semibold ${
-                          budget.percentage >= 100
-                            ? "text-red-500"
-                            : budget.percentage >= 80
-                            ? "text-yellow-500"
-                            : "text-green-500"
-                        }`}
-                      >
-                        {budget.percentage.toFixed(0)}%
-                      </span>
-                    </div>
-                    <Progress
-                      value={Math.min(budget.percentage, 100)}
-                      className={`h-2 ${getProgressColor(budget.percentage)}`}
-                    />
-                  </div>
-                  
-                  {/* Exceeded Warning */}
-                  {budget.percentage >= 100 && (
-                    <p className="text-xs text-red-500 flex items-center gap-1 pt-1 border-t border-red-500/20">
-                      <AlertCircle className="h-3 w-3" />
-                      Exceeded by ₹{(budget.spent - budget.amount).toLocaleString("en-IN")}
-                    </p>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

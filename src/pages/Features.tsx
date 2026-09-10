@@ -22,6 +22,8 @@ import { BudgetManager } from "@/components/BudgetManager";
 import { CurrencyConverter } from "@/components/CurrencyConverter";
 import { ExportImport } from "@/components/ExportImport";
 import { AccountManager } from "@/components/AccountManager";
+import { GroupExpenses } from "@/components/GroupExpenses";
+import { FinancialAdvisor } from "@/components/FinancialAdvisor";
 import { BottomNavigation } from "@/components/BottomNavigation";
 import { OnboardingTour } from "@/components/OnboardingTour";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -34,6 +36,7 @@ import { ImportedTransaction } from "@/utils/exportUtils";
 import { CallBackProps, STATUS } from "react-joyride";
 import { MonthlyComparisonChart } from "@/components/MonthlyComparisonChart";
 import { SpendingChart } from "@/components/SpendingChart";
+import { Users, Bot } from "lucide-react";
 
 const formatMoney = (value: number) =>
   `₹${Math.abs(value).toLocaleString("en-IN", { minimumFractionDigits: 2 })}`;
@@ -86,7 +89,7 @@ const Features = () => {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const tabParam = params.get("tab") || (location.state as any)?.tab;
-    if (tabParam && ["accounts", "budgets", "currency", "export"].includes(tabParam)) {
+    if (tabParam && ["accounts", "budgets", "advisor", "groups", "currency", "export"].includes(tabParam)) {
       setActiveTab(tabParam);
     }
   }, [location.search, location.state]);
@@ -184,20 +187,28 @@ const Features = () => {
       {/* Main Content */}
       <main className="container px-3 sm:px-4 py-4 sm:py-6 pb-32 md:pb-12">
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-4 mb-4 sm:mb-6 h-10 sm:h-11">
-            <TabsTrigger data-tour="accounts-tab" value="accounts" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+          <TabsList className="grid w-full grid-cols-3 sm:grid-cols-6 mb-4 sm:mb-6 h-auto sm:h-11 gap-1">
+            <TabsTrigger data-tour="accounts-tab" value="accounts" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2">
               <Wallet className="h-4 w-4" />
               <span className="hidden sm:inline">Accounts</span>
             </TabsTrigger>
-            <TabsTrigger data-tour="budgets-tab" value="budgets" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="budgets-tab" value="budgets" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2">
               <Target className="h-4 w-4" />
               <span className="hidden sm:inline">Budgets</span>
             </TabsTrigger>
-            <TabsTrigger data-tour="currency-tab" value="currency" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="advisor-tab" value="advisor" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2 text-violet-500 font-semibold">
+              <Bot className="h-4 w-4" />
+              <span>Advisor 🤖</span>
+            </TabsTrigger>
+            <TabsTrigger data-tour="groups-tab" value="groups" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2">
+              <Users className="h-4 w-4" />
+              <span className="hidden sm:inline">Groups</span>
+            </TabsTrigger>
+            <TabsTrigger data-tour="currency-tab" value="currency" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2">
               <Globe className="h-4 w-4" />
               <span className="hidden sm:inline">Currency</span>
             </TabsTrigger>
-            <TabsTrigger data-tour="export-tab" value="export" className="flex items-center justify-center gap-1 sm:gap-2 text-xs sm:text-sm px-1 sm:px-3">
+            <TabsTrigger data-tour="export-tab" value="export" className="flex items-center justify-center gap-1 text-xs sm:text-sm px-1 sm:px-2">
               <FileSpreadsheet className="h-4 w-4" />
               <span className="hidden sm:inline">Export</span>
             </TabsTrigger>
@@ -217,6 +228,14 @@ const Features = () => {
 
           <TabsContent value="budgets">
             <BudgetManager />
+          </TabsContent>
+
+          <TabsContent value="advisor">
+            <FinancialAdvisor />
+          </TabsContent>
+
+          <TabsContent value="groups">
+            <GroupExpenses />
           </TabsContent>
 
           <TabsContent value="currency">
