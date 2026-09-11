@@ -103,7 +103,9 @@ export const LoanTracker = () => {
           l.remainingBalance,
           l.interestRate,
           l.monthlyEMI,
-          l.extraMonthlyPayment
+          l.extraMonthlyPayment,
+          l.startDate,
+          l.tenureMonths
         );
         return sum + comp.interestSaved;
       }
@@ -118,8 +120,8 @@ export const LoanTracker = () => {
   );
 
   const simComparison = useMemo(
-    () => calculatePayoffComparison(simPrincipal, simRate, simEMI, simExtra),
-    [simPrincipal, simRate, simEMI, simExtra]
+    () => calculatePayoffComparison(simPrincipal, simRate, simEMI, simExtra, new Date().toISOString().split("T")[0], simTenure),
+    [simPrincipal, simRate, simEMI, simExtra, simTenure]
   );
 
   const handleAddLoanSubmit = (e: React.FormEvent) => {
@@ -376,7 +378,9 @@ export const LoanTracker = () => {
                   loan.remainingBalance,
                   loan.interestRate,
                   loan.monthlyEMI,
-                  loan.extraMonthlyPayment
+                  loan.extraMonthlyPayment,
+                  loan.startDate,
+                  loan.tenureMonths
                 );
 
                 return (
@@ -699,7 +703,7 @@ export const LoanTracker = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border">
-                      {generateAmortizationSchedule(simPrincipal, simRate, simEMI, simExtra)
+                      {generateAmortizationSchedule(simPrincipal, simRate, simEMI, simExtra, new Date().toISOString().split("T")[0], simTenure)
                         .slice(0, 24)
                         .map((m) => (
                           <tr key={m.month} className="hover:bg-muted/30">
@@ -805,7 +809,9 @@ export const LoanTracker = () => {
                       selectedLoanForAmortization.remainingBalance,
                       selectedLoanForAmortization.interestRate,
                       selectedLoanForAmortization.monthlyEMI,
-                      selectedLoanForAmortization.extraMonthlyPayment
+                      selectedLoanForAmortization.extraMonthlyPayment,
+                      selectedLoanForAmortization.startDate,
+                      selectedLoanForAmortization.tenureMonths
                     ).map((m) => (
                       <tr key={m.month} className="hover:bg-muted/30">
                         <td className="p-2 font-medium">{m.month} ({m.date})</td>

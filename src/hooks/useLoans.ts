@@ -44,31 +44,54 @@ export interface PayoffComparison {
 const STORAGE_LOANS = "expense-tracker:loans";
 
 /**
- * Calculates standard EMI given Principal, Annual Rate (%), and Tenure in months
+ * Calculates unrounded exact floating-point EMI for internal amortization math
  * Formula: P * r * (1 + r)^n / ((1 + r)^n - 1)
  */
-export const calculateEMI = (principal: number, annualRate: number, tenureMonths: number): number => {
+export const calculateExactEMI = (principal: number, annualRate: number, tenureMonths: number): number => {
   if (principal <= 0 || tenureMonths <= 0) return 0;
-  if (annualRate <= 0) return Math.round(principal / tenureMonths);
+  if (annualRate <= 0) return principal / tenureMonths;
 
   const r = annualRate / 12 / 100;
   const n = tenureMonths;
-  const emi = (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  return Math.round(emi);
+  return (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
 };
 
 /**
- * Generates month-by-month amortization schedule with optional extra prepayment
+ * Calculates standard rounded integer EMI for UI display
+ */
+export const calculateEMI = (principal: number, annualRate: number, tenureMonths: number): number => {
+  return Math.round(calculateExactEMI(principal, annualRate, tenureMonths));
+};
+
+/**
+ * Generates month-by-month amortization schedule with unrounded floating-point interest,
+ * adjusting the final payment in the last month to prevent rounding residue from creating an extra month.
  */
 export const generateAmortizationSchedule = (
   principal: number,
   annualRate: number,
   monthlyEMI: number,
   extraPayment: number = 0,
-  startDateStr: string = new Date().toISOString().split("T")[0]
+  startDateStr: string = new Date().toISOString().split("T")[0],
+  targetTenureMonths?: number
 ): AmortizationMonth[] => {
   const schedule: AmortizationMonth[] = [];
-  if (principal <= 0 || monthlyEMI <= 0) return schedule;
+  if (principal <= 0) return schedule;
+
+  let plannedTenure = targetTenureMonths || 0;
+  if (plannedTenure <= 0 && monthlyEMI > 0 && annualRate >= 0) {
+    const estExact = calculateExactEMI(principal, annualRate, 12);
+    if (Math.abs(monthlyEMI - Math.round(estExact)) <= 5) {
+      plannedTenure = 12;
+    } else {
+      plannedTenure = Math.round(principal / (monthlyEMI || 1));
+    }
+  }
+
+  // Use unrounded EMI for standard schedule math to prevent integer rounding drift
+  const basePaymentValue = (monthlyEMI > 0 && plannedTenure > 0 && Math.abs(monthlyEMI - Math.round(calculateExactEMI(principal, annualRate, plannedTenure))) > 5)
+    ? monthlyEMI
+    : calculateExactEMI(principal, annualRate, plannedTenure || 12);
 
   let balance = principal;
   const monthlyRate = annualRate / 12 / 100;
@@ -76,17 +99,28 @@ export const generateAmortizationSchedule = (
   const startDate = new Date(startDateStr);
 
   while (balance > 0.01 && month <= 600) {
-    const interestForMonth = Math.round(balance * monthlyRate);
-    const standardPrincipalPortion = monthlyEMI - interestForMonth;
+    const interestForMonth = balance * monthlyRate;
+    let paymentAmount = basePaymentValue + extraPayment;
 
-    let principalPaid = Math.max(0, standardPrincipalPortion) + extraPayment;
-    if (principalPaid > balance) {
-      principalPaid = balance;
+    // Final Month Adjustment:
+    // If this is the planned last month of the tenure (without extra prepayment),
+    // or if the remaining balance + interest is close to/less than the regular monthly payment,
+    // adjust payment to pay off the remaining balance exactly in this month.
+    const remainingToPay = balance + interestForMonth;
+    if (
+      (plannedTenure > 0 && month === plannedTenure && extraPayment === 0) ||
+      remainingToPay <= paymentAmount * 1.08
+    ) {
+      paymentAmount = remainingToPay;
     }
 
-    const totalPayment = interestForMonth + principalPaid;
-    const endingBalance = Math.max(0, balance - principalPaid);
+    let principalPaid = paymentAmount - interestForMonth;
+    if (principalPaid > balance) {
+      principalPaid = balance;
+      paymentAmount = interestForMonth + principalPaid;
+    }
 
+    const endingBalance = Math.max(0, balance - principalPaid);
     const currentDate = new Date(startDate);
     currentDate.setMonth(currentDate.getMonth() + month - 1);
 
@@ -96,7 +130,7 @@ export const generateAmortizationSchedule = (
       beginningBalance: Math.round(balance),
       interestPaid: Math.round(interestForMonth),
       principalPaid: Math.round(principalPaid),
-      totalPayment: Math.round(totalPayment),
+      totalPayment: Math.round(paymentAmount),
       endingBalance: Math.round(endingBalance),
     });
 
@@ -115,18 +149,33 @@ export const calculatePayoffComparison = (
   annualRate: number,
   monthlyEMI: number,
   extraPayment: number,
-  startDateStr: string = new Date().toISOString().split("T")[0]
+  startDateStr: string = new Date().toISOString().split("T")[0],
+  targetTenureMonths?: number
 ): PayoffComparison => {
-  const standardSchedule = generateAmortizationSchedule(principal, annualRate, monthlyEMI, 0, startDateStr);
-  const fastTrackSchedule = generateAmortizationSchedule(principal, annualRate, monthlyEMI, extraPayment, startDateStr);
+  const standardSchedule = generateAmortizationSchedule(
+    principal,
+    annualRate,
+    monthlyEMI,
+    0,
+    startDateStr,
+    targetTenureMonths
+  );
+  const fastTrackSchedule = generateAmortizationSchedule(
+    principal,
+    annualRate,
+    monthlyEMI,
+    extraPayment,
+    startDateStr,
+    targetTenureMonths
+  );
 
-  const standardTotalInterest = standardSchedule.reduce((sum, m) => sum + m.interestPaid, 0);
-  const standardTotalPayment = standardSchedule.reduce((sum, m) => sum + m.totalPayment, 0);
+  const standardTotalInterest = Math.round(standardSchedule.reduce((sum, m) => sum + m.interestPaid, 0));
+  const standardTotalPayment = Math.round(standardSchedule.reduce((sum, m) => sum + m.totalPayment, 0));
   const standardMonths = standardSchedule.length;
   const standardPayoffDate = standardSchedule.length > 0 ? standardSchedule[standardSchedule.length - 1].date : "N/A";
 
-  const fastTrackTotalInterest = fastTrackSchedule.reduce((sum, m) => sum + m.interestPaid, 0);
-  const fastTrackTotalPayment = fastTrackSchedule.reduce((sum, m) => sum + m.totalPayment, 0);
+  const fastTrackTotalInterest = Math.round(fastTrackSchedule.reduce((sum, m) => sum + m.interestPaid, 0));
+  const fastTrackTotalPayment = Math.round(fastTrackSchedule.reduce((sum, m) => sum + m.totalPayment, 0));
   const fastTrackMonths = fastTrackSchedule.length;
   const fastTrackPayoffDate = fastTrackSchedule.length > 0 ? fastTrackSchedule[fastTrackSchedule.length - 1].date : "N/A";
 
