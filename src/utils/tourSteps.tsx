@@ -221,7 +221,7 @@ export const dashboardTourSteps: Step[] = [
           You now know how to use all the main features of Expense Tracker!
         </p>
         <p className="text-sm text-muted-foreground">
-          Don't forget to explore the Features page for advanced tools like budgets, currency conversion, and import/export.
+          Don't forget to explore the Features page for advanced tools like budgets, group expenses, AI advisor, and import/export.
         </p>
       </div>
     ),
@@ -261,18 +261,6 @@ export const featuresTourSteps: Step[] = [
         <h3 className="font-bold mb-2">Budget Manager</h3>
         <p>
           Set monthly budgets for different categories to control your spending. Get alerts when you're approaching or exceeding your limits!
-        </p>
-      </div>
-    ),
-    placement: "bottom",
-  },
-  {
-    target: '[data-tour="currency-tab"]',
-    content: (
-      <div>
-        <h3 className="font-bold mb-2">Currency Converter</h3>
-        <p>
-          Convert between different currencies with real-time exchange rates. Perfect for international transactions or travel planning!
         </p>
       </div>
     ),

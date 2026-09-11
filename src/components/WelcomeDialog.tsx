@@ -80,7 +80,7 @@ export const WelcomeDialog = ({ onStartTour, onSkip }: WelcomeDialogProps) => {
               </li>
               <li className="flex items-start gap-2">
                 <span className="text-primary">•</span>
-                <span>Using budgets, currency conversion, and data export/import</span>
+                <span>Using budgets, AI advisor, group expenses, and data export/import</span>
               </li>
             </ul>
           </div>
