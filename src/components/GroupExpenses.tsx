@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ExpandableText } from "@/components/ExpandableText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,9 +51,15 @@ import {
   Sparkles,
   Calendar,
   Wallet,
+  FileSpreadsheet,
+  Printer,
+  Download,
+  CheckSquare,
+  Square,
 } from "lucide-react";
 import { useGroupExpenses, Group, GroupExpense } from "@/hooks/useGroupExpenses";
 import { useExpenseData } from "@/hooks/useExpenseData";
+import { exportGroupToCSV, exportGroupToPDF } from "@/utils/groupExport";
 
 const EMOJI_OPTIONS = ["🏖️", "🏠", "🍕", "🚗", "🎉", "✈️", "☕", "🛒", "🎮", "⚽"];
 
@@ -110,11 +117,13 @@ export const GroupExpenses = () => {
     title: "",
     amount: "",
     paid_by: "You",
+    payerMode: "single" as "single" | "multiple",
+    multiplePayers: {} as Record<string, string>,
     category: "Food & Dining",
     split_type: "equal" as "equal" | "custom",
     participatingMembers: [] as string[],
     customSplits: {} as Record<string, string>,
-    syncToPersonal: true,
+    syncToPersonal: false, // Default false to isolate group expenses from normal transactions
   });
 
   const [settlementFormData, setSettlementFormData] = useState({
@@ -187,21 +196,41 @@ export const GroupExpenses = () => {
       title: "",
       amount: "",
       paid_by: "You",
+      payerMode: "single",
+      multiplePayers: selectedGroup.members.reduce((acc, m) => ({ ...acc, [m]: "" }), {}),
       category: "Food & Dining",
       split_type: "equal",
       participatingMembers: [...selectedGroup.members],
       customSplits: selectedGroup.members.reduce((acc, m) => ({ ...acc, [m]: "" }), {}),
-      syncToPersonal: true,
+      syncToPersonal: false,
     });
     setIsAddExpenseOpen(true);
   };
 
   // Handle Add Expense Submit
   const handleAddExpenseSubmit = async () => {
-    if (!selectedGroup || !expenseFormData.title.trim() || !expenseFormData.amount) return;
+    if (!selectedGroup || !expenseFormData.title.trim()) return;
 
-    const numAmount = parseFloat(expenseFormData.amount);
-    if (isNaN(numAmount) || numAmount <= 0) return;
+    let numAmount = parseFloat(expenseFormData.amount) || 0;
+    let finalPaidByMap: Record<string, number> | undefined = undefined;
+    let mainPaidBy = expenseFormData.paid_by;
+
+    if (expenseFormData.payerMode === "multiple") {
+      finalPaidByMap = {};
+      let sumPaid = 0;
+      Object.entries(expenseFormData.multiplePayers).forEach(([m, val]) => {
+        const p = parseFloat(val);
+        if (!isNaN(p) && p > 0) {
+          finalPaidByMap![m] = p;
+          sumPaid += p;
+        }
+      });
+      if (sumPaid <= 0) return;
+      numAmount = sumPaid;
+      mainPaidBy = Object.keys(finalPaidByMap).join(", ");
+    } else {
+      if (isNaN(numAmount) || numAmount <= 0) return;
+    }
 
     const finalSplits: Record<string, number> = {};
 
@@ -227,14 +256,15 @@ export const GroupExpenses = () => {
       group_id: selectedGroup.id,
       title: expenseFormData.title.trim(),
       amount: numAmount,
-      paid_by: expenseFormData.paid_by,
+      paid_by: mainPaidBy,
+      paid_by_map: finalPaidByMap,
       category: expenseFormData.category,
       date: new Date().toISOString().split("T")[0],
       split_type: expenseFormData.split_type,
       splits: finalSplits,
     });
 
-    // Optionally sync "Your Share" to personal expense tracker
+    // Optionally sync "Your Share" to personal expense tracker if user explicitly toggles it
     if (expenseFormData.syncToPersonal && finalSplits["You"] > 0) {
       const defaultAccount = accounts[0]?.id || "";
       await addTransaction({
@@ -561,13 +591,35 @@ export const GroupExpenses = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportGroupToCSV(selectedGroup, expenses, settlements, currentGroupBalances, currentSimplifiedDebts)}
+                className="border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 text-xs gap-1"
+                title="Download CSV Report"
+              >
+                <FileSpreadsheet className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">CSV</span>
+              </Button>
+
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => exportGroupToPDF(selectedGroup, expenses, settlements, currentGroupBalances, currentSimplifiedDebts)}
+                className="border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/10 text-xs gap-1"
+                title="Print / Save PDF Report"
+              >
+                <Printer className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">PDF</span>
+              </Button>
+
               <Button
                 size="sm"
                 onClick={handleOpenAddExpense}
-                className="bg-violet-600 hover:bg-violet-700 text-white shadow-md"
+                className="bg-violet-600 hover:bg-violet-700 text-white shadow-md text-xs"
               >
-                <Plus className="h-4 w-4 mr-1.5" />
+                <Plus className="h-4 w-4 mr-1" />
                 Add Expense
               </Button>
 
@@ -658,29 +710,31 @@ export const GroupExpenses = () => {
           </div>
 
           {/* Navigation Tabs */}
-          <div className="flex border-b border-border space-x-4">
+          <div className="flex border-b border-border space-x-4 overflow-x-auto no-scrollbar shrink-0">
             <button
               onClick={() => setActiveTab("expenses")}
-              className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+              className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
                 activeTab === "expenses"
                   ? "border-violet-500 text-violet-500"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <Receipt className="h-3.5 w-3.5" />
-              Group Expenses ({expenses.filter((e) => e.group_id === selectedGroup.id).length})
+              <span className="sm:hidden">Expenses ({expenses.filter((e) => e.group_id === selectedGroup.id).length})</span>
+              <span className="hidden sm:inline">Group Expenses ({expenses.filter((e) => e.group_id === selectedGroup.id).length})</span>
             </button>
 
             <button
               onClick={() => setActiveTab("balances")}
-              className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+              className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
                 activeTab === "balances"
                   ? "border-violet-500 text-violet-500"
                   : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               <HandCoins className="h-3.5 w-3.5" />
-              Balances & Settle Up ({currentSimplifiedDebts.length})
+              <span className="sm:hidden">Balances ({currentSimplifiedDebts.length})</span>
+              <span className="hidden sm:inline">Balances & Settle Up ({currentSimplifiedDebts.length})</span>
             </button>
           </div>
 
@@ -713,7 +767,16 @@ export const GroupExpenses = () => {
                           <div>
                             <h4 className="text-sm font-semibold text-foreground">{expense.title}</h4>
                             <div className="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-muted-foreground">
-                              <span>Paid by <strong className="text-foreground font-medium">{expense.paid_by}</strong></span>
+                              <span>
+                                Paid by{" "}
+                                <strong className="text-foreground font-medium">
+                                  {expense.paid_by_map && Object.keys(expense.paid_by_map).length > 0
+                                    ? Object.entries(expense.paid_by_map)
+                                        .map(([p, a]) => `${p} (₹${a})`)
+                                        .join(" & ")
+                                    : expense.paid_by}
+                                </strong>
+                              </span>
                               <span>•</span>
                               <Badge variant="outline" className="text-[10px] px-1.5 py-0">
                                 {expense.category}
@@ -757,9 +820,11 @@ export const GroupExpenses = () => {
                     <Sparkles className="h-4 w-4" />
                     Simplified Settle-Up Transfers
                   </CardTitle>
-                  <CardDescription className="text-xs">
-                    Optimized list of minimal payments required to clear all group debts
-                  </CardDescription>
+                  <ExpandableText
+                    text="Optimized list of minimal payments required to clear all group debts"
+                    maxChars={45}
+                    className="text-xs text-muted-foreground"
+                  />
                 </CardHeader>
                 <CardContent className="space-y-2">
                   {currentSimplifiedDebts.length === 0 ? (
@@ -853,39 +918,109 @@ export const GroupExpenses = () => {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-2">
-                    <Label>Amount (₹)</Label>
-                    <Input
-                      type="number"
-                      placeholder="0.00"
-                      value={expenseFormData.amount}
-                      onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: e.target.value })}
-                    />
+                {/* PAYER MODE SELECTOR */}
+                <div className="space-y-2 border-t border-border pt-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-semibold">Who Paid?</Label>
+                    <div className="flex gap-1 border border-border rounded-lg p-0.5 bg-muted/30">
+                      <button
+                        type="button"
+                        onClick={() => setExpenseFormData({ ...expenseFormData, payerMode: "single" })}
+                        className={`text-xs px-2.5 py-1 rounded-md transition-all ${
+                          expenseFormData.payerMode === "single"
+                            ? "bg-violet-600 text-white font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Single Payer
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setExpenseFormData({ ...expenseFormData, payerMode: "multiple" })}
+                        className={`text-xs px-2.5 py-1 rounded-md transition-all ${
+                          expenseFormData.payerMode === "multiple"
+                            ? "bg-violet-600 text-white font-medium"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Multiple Payers (2+)
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="space-y-2">
-                    <Label>Paid By</Label>
-                    <Select
-                      value={expenseFormData.paid_by}
-                      onValueChange={(val) => setExpenseFormData({ ...expenseFormData, paid_by: val })}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
+                  {expenseFormData.payerMode === "single" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Amount (₹)</Label>
+                        <Input
+                          type="number"
+                          placeholder="0.00"
+                          value={expenseFormData.amount}
+                          onChange={(e) => setExpenseFormData({ ...expenseFormData, amount: e.target.value })}
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label className="text-xs">Paid By</Label>
+                        <Select
+                          value={expenseFormData.paid_by}
+                          onValueChange={(val) => setExpenseFormData({ ...expenseFormData, paid_by: val })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedGroup.members.map((m) => (
+                              <SelectItem key={m} value={m}>
+                                {m}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2 bg-muted/20 p-2.5 rounded-xl border border-border/60">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground font-medium">Enter amount paid by each person:</span>
+                        <span className="font-bold text-violet-500">
+                          Total: ₹
+                          {Object.values(expenseFormData.multiplePayers)
+                            .reduce((sum, v) => sum + (parseFloat(v) || 0), 0)
+                            .toLocaleString("en-IN")}
+                        </span>
+                      </div>
+                      <div className="max-h-36 overflow-y-auto space-y-2 pr-1 scrollbar-thin">
                         {selectedGroup.members.map((m) => (
-                          <SelectItem key={m} value={m}>
-                            {m}
-                          </SelectItem>
+                          <div key={m} className="flex items-center justify-between gap-2 bg-card p-2 rounded-lg border border-border/40">
+                            <span className="text-xs font-medium w-24 truncate">{m}</span>
+                            <div className="relative flex-1">
+                              <span className="absolute left-2.5 top-2 text-xs text-muted-foreground">₹</span>
+                              <Input
+                                type="number"
+                                placeholder="0"
+                                className="h-8 text-xs pl-6"
+                                value={expenseFormData.multiplePayers[m] || ""}
+                                onChange={(e) =>
+                                  setExpenseFormData({
+                                    ...expenseFormData,
+                                    multiplePayers: {
+                                      ...expenseFormData.multiplePayers,
+                                      [m]: e.target.value,
+                                    },
+                                  })
+                                }
+                              />
+                            </div>
+                          </div>
                         ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Category</Label>
+                  <Label className="text-xs">Category</Label>
                   <Select
                     value={expenseFormData.category}
                     onValueChange={(val) => setExpenseFormData({ ...expenseFormData, category: val })}
@@ -905,7 +1040,7 @@ export const GroupExpenses = () => {
 
                 <div className="space-y-2 border-t border-border pt-3">
                   <div className="flex items-center justify-between">
-                    <Label className="text-xs font-semibold">Split Type</Label>
+                    <Label className="text-xs font-semibold">Split Strategy</Label>
                     <div className="flex gap-1 border border-border rounded-lg p-0.5 bg-muted/30">
                       <button
                         type="button"
@@ -934,7 +1069,25 @@ export const GroupExpenses = () => {
 
                   {expenseFormData.split_type === "equal" ? (
                     <div className="space-y-1.5 pt-1">
-                      <p className="text-[11px] text-muted-foreground">Select participating members:</p>
+                      <div className="flex items-center justify-between text-[11px]">
+                        <span className="text-muted-foreground">Select participating members ({selectedGroup.members.length}):</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const allSelected = expenseFormData.participatingMembers.length === selectedGroup.members.length;
+                            setExpenseFormData({
+                              ...expenseFormData,
+                              participatingMembers: allSelected ? [] : [...selectedGroup.members],
+                            });
+                          }}
+                          className="text-violet-500 hover:underline font-semibold text-[10px]"
+                        >
+                          {expenseFormData.participatingMembers.length === selectedGroup.members.length
+                            ? "Clear All"
+                            : "Select All"}
+                        </button>
+                      </div>
+
                       <div className="max-h-44 overflow-y-auto space-y-1.5 pr-1 border border-border/50 rounded-xl p-2 bg-muted/10">
                         {selectedGroup.members.map((m) => {
                           const isChecked = expenseFormData.participatingMembers.includes(m);
@@ -1000,8 +1153,8 @@ export const GroupExpenses = () => {
                       setExpenseFormData({ ...expenseFormData, syncToPersonal: !!checked })
                     }
                   />
-                  <Label htmlFor="sync-personal" className="text-xs font-normal cursor-pointer">
-                    Sync <strong>Your Share</strong> to personal Expense Tracker transactions
+                  <Label htmlFor="sync-personal" className="text-xs font-normal cursor-pointer text-muted-foreground">
+                    Optionally sync <strong>Your Share</strong> to personal transactions
                   </Label>
                 </div>
               </div>

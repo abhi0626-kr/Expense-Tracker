@@ -17,7 +17,8 @@ export interface GroupExpense {
   group_id: string;
   title: string;
   amount: number;
-  paid_by: string; // Member name e.g. "You" or "Rahul"
+  paid_by: string; // Legacy single payer name e.g. "You" or "Rahul"
+  paid_by_map?: Record<string, number>; // Multiple payers: member -> amount paid e.g. { "Rahul": 600, "Priya": 400 }
   category: string;
   date: string;
   split_type: "equal" | "custom";
@@ -214,11 +215,22 @@ export const useGroupExpenses = () => {
     // 1. Process Expenses
     const groupExpensesList = expenses.filter((e) => e.group_id === groupId);
     groupExpensesList.forEach((exp) => {
-      // Payer gets credited full amount
-      if (balances[exp.paid_by] !== undefined) {
-        balances[exp.paid_by] += exp.amount;
+      // Payers get credited their paid contributions
+      if (exp.paid_by_map && Object.keys(exp.paid_by_map).length > 0) {
+        Object.entries(exp.paid_by_map).forEach(([payer, paidAmount]) => {
+          if (balances[payer] !== undefined) {
+            balances[payer] += paidAmount;
+          } else {
+            balances[payer] = paidAmount;
+          }
+        });
       } else {
-        balances[exp.paid_by] = exp.amount;
+        // Fallback for single payer
+        if (balances[exp.paid_by] !== undefined) {
+          balances[exp.paid_by] += exp.amount;
+        } else {
+          balances[exp.paid_by] = exp.amount;
+        }
       }
 
       // Each participant gets debited their split share

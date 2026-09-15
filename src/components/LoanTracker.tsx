@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ExpandableText } from "@/components/ExpandableText";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -217,7 +218,8 @@ export const LoanTracker = () => {
             className="flex-1 sm:flex-initial text-xs font-semibold rounded-lg gap-1.5"
           >
             <Landmark className="h-3.5 w-3.5" />
-            My Debt Portfolio ({loans.length})
+            <span className="sm:hidden">My Debts ({loans.length})</span>
+            <span className="hidden sm:inline">My Debt Portfolio ({loans.length})</span>
           </Button>
           <Button
             variant={viewMode === "calculator" ? "default" : "ghost"}
@@ -226,7 +228,8 @@ export const LoanTracker = () => {
             className="flex-1 sm:flex-initial text-xs font-semibold rounded-lg gap-1.5"
           >
             <Calculator className="h-3.5 w-3.5 text-violet-500" />
-            Prepayment Savings Calculator
+            <span className="sm:hidden">Prepay Calc</span>
+            <span className="hidden sm:inline">Prepayment Savings Calculator</span>
           </Button>
         </div>
 
@@ -235,7 +238,8 @@ export const LoanTracker = () => {
             <DialogTrigger asChild>
               <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white text-xs gap-1.5 w-full sm:w-auto rounded-xl">
                 <Plus className="h-4 w-4" />
-                Add Loan / Debt
+                <span className="sm:hidden">Add Debt</span>
+                <span className="hidden sm:inline">Add Loan / Debt</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-md border-border bg-card">
@@ -358,9 +362,11 @@ export const LoanTracker = () => {
                   <Landmark className="h-8 w-8" />
                 </div>
                 <h3 className="text-base font-bold text-foreground">No Debt Records Added Yet</h3>
-                <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                  Track your Home Loan, Personal Loan, Car Loan, or Credit Card Dues to visualize payoff schedules and save interest.
-                </p>
+                <ExpandableText
+                  text="Track your Home Loan, Personal Loan, Car Loan, or Credit Card Dues to visualize payoff schedules and save interest."
+                  maxChars={55}
+                  className="text-xs text-muted-foreground max-w-md mx-auto"
+                />
                 <Button onClick={() => setIsAddOpen(true)} className="bg-violet-600 hover:bg-violet-700 text-white text-xs gap-1.5">
                   <Plus className="h-4 w-4" />
                   Add Your First Loan
@@ -508,13 +514,16 @@ export const LoanTracker = () => {
           {/* Simulator Inputs */}
           <Card className="lg:col-span-1 border-border bg-card/90 shadow-md">
             <CardHeader>
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <Calculator className="h-5 w-5 text-violet-500" />
-                Loan & Prepayment Simulator
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-violet-500 shrink-0" />
+                <span className="sm:hidden">Loan Simulator</span>
+                <span className="hidden sm:inline">Loan & Prepayment Simulator</span>
               </CardTitle>
-              <CardDescription className="text-xs">
-                Adjust parameters to calculate your EMI and see how extra monthly payments save huge interest.
-              </CardDescription>
+              <ExpandableText
+                text="Adjust parameters to calculate your EMI and see how extra monthly payments save huge interest."
+                maxChars={55}
+                className="text-xs text-muted-foreground"
+              />
             </CardHeader>
 
             <CardContent className="space-y-4 text-xs">
@@ -679,7 +688,12 @@ export const LoanTracker = () => {
                 className="text-xs gap-1.5 border-violet-500/30 text-violet-500"
               >
                 <Layers className="h-3.5 w-3.5" />
-                {showSimAmortization ? "Hide Monthly Amortization Table" : "View Full Amortization Schedule Table"}
+                {showSimAmortization ? "Hide Amortization Table" : (
+                  <>
+                    <span className="sm:hidden">View Amortization Table</span>
+                    <span className="hidden sm:inline">View Full Amortization Schedule Table</span>
+                  </>
+                )}
               </Button>
             </div>
 
@@ -688,7 +702,8 @@ export const LoanTracker = () => {
               <Card className="border-border bg-card/90 overflow-hidden">
                 <CardHeader className="pb-2">
                   <CardTitle className="text-xs font-bold uppercase text-foreground">
-                    Month-by-Month Amortization Schedule (First 24 Months)
+                    <span className="sm:hidden">Amortization Schedule</span>
+                    <span className="hidden sm:inline">Month-by-Month Amortization Schedule (First 24 Months)</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 overflow-x-auto">

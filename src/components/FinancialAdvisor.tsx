@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { useBudgets } from "@/hooks/useBudgets";
+import { ExpandableText } from "@/components/ExpandableText";
 import {
   calculateFinancialHealthScore,
   calculateCategoryTrends,
@@ -205,9 +206,11 @@ export const FinancialAdvisor = () => {
                     {health.grade}
                   </Badge>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Based on your savings rate, budget usage, and spending velocity this month.
-                </p>
+                <ExpandableText
+                  text="Based on your savings rate, budget usage, and spending velocity this month."
+                  maxChars={50}
+                  className="text-xs text-muted-foreground mt-1"
+                />
               </div>
             </div>
 
@@ -231,41 +234,44 @@ export const FinancialAdvisor = () => {
       </Card>
 
       {/* NAVIGATION TABS */}
-      <div className="flex border-b border-border space-x-4">
+      <div className="flex border-b border-border space-x-4 overflow-x-auto no-scrollbar shrink-0">
         <button
           onClick={() => setActiveTab("insights")}
-          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
             activeTab === "insights"
               ? "border-violet-500 text-violet-500"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Lightbulb className="h-3.5 w-3.5" />
-          Smart Insights ({insights.length})
+          <span className="sm:hidden">Insights ({insights.length})</span>
+          <span className="hidden sm:inline">Smart Insights ({insights.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("subscriptions")}
-          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
             activeTab === "subscriptions"
               ? "border-violet-500 text-violet-500"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <RefreshCw className="h-3.5 w-3.5" />
-          Subscriptions ({subscriptions.length})
+          <span className="sm:hidden">Subs ({subscriptions.length})</span>
+          <span className="hidden sm:inline">Subscriptions ({subscriptions.length})</span>
         </button>
 
         <button
           onClick={() => setActiveTab("chat")}
-          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 ${
+          className={`pb-2.5 text-xs font-semibold border-b-2 transition-all flex items-center gap-1.5 shrink-0 ${
             activeTab === "chat"
               ? "border-violet-500 text-violet-500"
               : "border-transparent text-muted-foreground hover:text-foreground"
           }`}
         >
           <Bot className="h-3.5 w-3.5" />
-          AI Assistant Chat 🤖
+          <span className="sm:hidden">AI Chat 🤖</span>
+          <span className="hidden sm:inline">AI Assistant Chat 🤖</span>
         </button>
       </div>
 
@@ -289,7 +295,7 @@ export const FinancialAdvisor = () => {
                   <CardTitle className="text-base font-bold text-foreground mt-2">{insight.title}</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <p className="text-xs text-muted-foreground leading-relaxed">{insight.message}</p>
+                  <ExpandableText text={insight.message} maxChars={60} className="text-xs text-muted-foreground leading-relaxed" />
                   {insight.actionText && (
                     <div className="p-2.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-xs font-medium text-violet-600 dark:text-violet-400 flex items-center justify-between">
                       <span>{insight.actionText}</span>
@@ -304,13 +310,12 @@ export const FinancialAdvisor = () => {
           {/* Category Trends Comparison */}
           <Card className="border-border bg-card/90 shadow-md backdrop-blur-xl">
             <CardHeader className="pb-2">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-violet-500" />
-                Category Spending Inflation (This Month vs Last Month)
+              <CardTitle className="text-sm sm:text-base font-bold flex items-center gap-2">
+                <TrendingUp className="h-4 w-4 text-violet-500 shrink-0" />
+                <span className="sm:hidden">Category Inflation (This Month vs Last)</span>
+                <span className="hidden sm:inline">Category Spending Inflation (This Month vs Last Month)</span>
               </CardTitle>
-              <CardDescription className="text-xs">
-                Track which categories saw the highest percentage spending changes
-              </CardDescription>
+              <ExpandableText text="Track which categories saw the highest percentage spending changes" maxChars={45} className="text-xs text-muted-foreground" />
             </CardHeader>
             <CardContent className="space-y-3 pt-2">
               {trends.slice(0, 5).map((trend) => (
@@ -342,7 +347,10 @@ export const FinancialAdvisor = () => {
           <Card className="border-cyan-500/30 bg-cyan-500/5">
             <CardContent className="p-4 flex items-center justify-between">
               <div>
-                <p className="text-xs text-muted-foreground font-medium uppercase">Total Monthly Subscriptions Load</p>
+                <p className="text-xs text-muted-foreground font-medium uppercase">
+                  <span className="sm:hidden">Monthly Subscriptions Load</span>
+                  <span className="hidden sm:inline">Total Monthly Subscriptions Load</span>
+                </p>
                 <p className="text-2xl font-bold text-foreground">₹{totalSubCost.toLocaleString("en-IN")}<span className="text-xs font-normal text-muted-foreground">/month</span></p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Annual recurring cost: <strong>₹{(totalSubCost * 12).toLocaleString("en-IN")}</strong>
@@ -357,7 +365,8 @@ export const FinancialAdvisor = () => {
           <div className="space-y-3">
             <div className="flex items-center justify-between">
               <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
-                Active & Tracked Subscriptions
+                <span className="sm:hidden">Active Subscriptions</span>
+                <span className="hidden sm:inline">Active & Tracked Subscriptions</span>
               </h3>
 
               <Dialog open={isAddSubOpen} onOpenChange={setIsAddSubOpen}>

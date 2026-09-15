@@ -326,53 +326,61 @@ const Dashboard = () => {
               <Alert
                 key={alert.id}
                 variant={alert.alert_type === "exceeded" ? "destructive" : "default"}
-                className="cursor-pointer border-border bg-card text-sm text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:bg-slate-950/80 dark:shadow-[0_18px_60px_rgba(0,0,0,0.28)]"
+                className="cursor-pointer border-amber-500/30 bg-amber-500/10 text-amber-800 dark:text-amber-200 shadow-sm backdrop-blur rounded-xl p-2.5 flex items-start gap-2.5 text-xs"
                 onClick={() => navigate("/features")}
               >
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription>{alert.message}</AlertDescription>
+                <AlertTriangle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+                <AlertDescription className="text-[11px] leading-snug font-medium">
+                  {alert.message}
+                </AlertDescription>
               </Alert>
             ))}
           </div>
         )}
 
-        <section className="mt-4 grid grid-cols-3 gap-2.5">
+        <section className="mt-3.5 grid grid-cols-3 gap-2">
           <Card
             data-tour="total-balance"
-            className="rounded-[22px] border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-cyan-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+            className="rounded-2xl border-cyan-500/20 bg-gradient-to-br from-cyan-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-cyan-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white"
           >
-            <CardContent className="p-3.5">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
-                <span>Total Balance</span>
-                <WalletIcon className="h-[18px] w-[18px] text-cyan-600 dark:text-cyan-300" />
+            <CardContent className="p-2.5 sm:p-3.5">
+              <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground dark:text-slate-300">
+                <span className="truncate">Balance</span>
+                <WalletIcon className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px] text-cyan-600 dark:text-cyan-300 shrink-0" />
               </div>
-              <div className="mt-3 text-[15px] font-semibold text-foreground dark:text-white">{formatMoney(totalBalance)}</div>
+              <div className="mt-2 sm:mt-3 text-[12px] sm:text-[15px] font-bold text-foreground dark:text-white truncate">
+                {formatMoney(totalBalance)}
+              </div>
             </CardContent>
           </Card>
 
           <Card
             data-tour="total-income"
-            className="rounded-[22px] border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-emerald-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+            className="rounded-2xl border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-emerald-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white"
           >
-            <CardContent className="p-3.5">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
-                <span>Total Income</span>
-                <TrendingUpIcon className="h-[18px] w-[18px] text-emerald-600 dark:text-emerald-300" />
+            <CardContent className="p-2.5 sm:p-3.5">
+              <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground dark:text-slate-300">
+                <span className="truncate">Income</span>
+                <TrendingUpIcon className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px] text-emerald-600 dark:text-emerald-300 shrink-0" />
               </div>
-              <div className="mt-3 text-[15px] font-semibold text-emerald-600 dark:text-emerald-300">+{formatMoney(totalIncome)}</div>
+              <div className="mt-2 sm:mt-3 text-[12px] sm:text-[15px] font-bold text-emerald-600 dark:text-emerald-300 truncate">
+                +{formatMoney(totalIncome)}
+              </div>
             </CardContent>
           </Card>
 
           <Card
             data-tour="total-expenses"
-            className="rounded-[22px] border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-rose-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white dark:shadow-[0_18px_60px_rgba(0,0,0,0.35)]"
+            className="rounded-2xl border-rose-500/20 bg-gradient-to-br from-rose-500/10 via-card to-card text-card-foreground shadow-sm backdrop-blur dark:border-white/10 dark:from-rose-500/20 dark:via-slate-950 dark:to-slate-950 dark:text-white"
           >
-            <CardContent className="p-3.5">
-              <div className="flex items-center justify-between text-[10px] text-muted-foreground dark:text-slate-300">
-                <span>Total Expense</span>
-                <TrendingDownIcon className="h-[18px] w-[18px] text-rose-600 dark:text-rose-300" />
+            <CardContent className="p-2.5 sm:p-3.5">
+              <div className="flex items-center justify-between text-[9px] sm:text-[10px] text-muted-foreground dark:text-slate-300">
+                <span className="truncate">Expense</span>
+                <TrendingDownIcon className="h-3.5 w-3.5 sm:h-[18px] sm:w-[18px] text-rose-600 dark:text-rose-300 shrink-0" />
               </div>
-              <div className="mt-3 text-[15px] font-semibold text-rose-600 dark:text-rose-300">-{formatMoney(totalExpenses)}</div>
+              <div className="mt-2 sm:mt-3 text-[12px] sm:text-[15px] font-bold text-rose-600 dark:text-rose-300 truncate">
+                -{formatMoney(totalExpenses)}
+              </div>
             </CardContent>
           </Card>
         </section>

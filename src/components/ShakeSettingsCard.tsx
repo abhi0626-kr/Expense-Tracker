@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { ExpandableText } from "@/components/ExpandableText";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -41,9 +42,11 @@ export const ShakeSettingsCard = () => {
                   Pro Feature
                 </Badge>
               </CardTitle>
-              <CardDescription className="text-xs mt-0.5">
-                Shake your mobile phone while using the app to quickly add a transaction.
-              </CardDescription>
+              <ExpandableText
+                text="Shake your mobile phone while using the app to quickly add a transaction."
+                maxChars={45}
+                className="text-xs text-muted-foreground mt-0.5"
+              />
             </div>
           </div>
         </div>
