@@ -72,18 +72,88 @@ export const useGroupExpenses = () => {
   const [settlements, setSettlements] = useState<GroupSettlement[]>(() => getLocalData<GroupSettlement[]>(STORAGE_SETTLEMENTS, []));
   const [loading, setLoading] = useState(false);
 
-  // Sync to localStorage whenever state changes
+  // Helper to sync group data to Supabase user cloud metadata
+  const syncToCloud = useCallback(async (
+    updatedGroups: Group[],
+    updatedExpenses: GroupExpense[],
+    updatedSettlements: GroupSettlement[]
+  ) => {
+    if (!user) return;
+    try {
+      const userGroupKey = `${STORAGE_GROUPS}:${user.id}`;
+      const userExpenseKey = `${STORAGE_EXPENSES}:${user.id}`;
+      const userSettlementKey = `${STORAGE_SETTLEMENTS}:${user.id}`;
+
+      saveLocalData(userGroupKey, updatedGroups);
+      saveLocalData(userExpenseKey, updatedExpenses);
+      saveLocalData(userSettlementKey, updatedSettlements);
+
+      await supabase.auth.updateUser({
+        data: {
+          group_expenses_data: {
+            groups: updatedGroups,
+            expenses: updatedExpenses,
+            settlements: updatedSettlements,
+            updated_at: new Date().toISOString(),
+          },
+        },
+      });
+    } catch (err) {
+      console.error("Error syncing group data to Supabase cloud:", err);
+    }
+  }, [user]);
+
+  // Load cloud data upon user login / initialization
+  useEffect(() => {
+    if (!user) return;
+
+    const userGroupKey = `${STORAGE_GROUPS}:${user.id}`;
+    const userExpenseKey = `${STORAGE_EXPENSES}:${user.id}`;
+    const userSettlementKey = `${STORAGE_SETTLEMENTS}:${user.id}`;
+
+    const cloudData = user.user_metadata?.group_expenses_data as {
+      groups?: Group[];
+      expenses?: GroupExpense[];
+      settlements?: GroupSettlement[];
+    } | undefined;
+
+    const localUserGroups = getLocalData<Group[]>(userGroupKey, []);
+    const localUserExpenses = getLocalData<GroupExpense[]>(userExpenseKey, []);
+    const localUserSettlements = getLocalData<GroupSettlement[]>(userSettlementKey, []);
+
+    const finalGroups = cloudData?.groups?.length 
+      ? cloudData.groups 
+      : localUserGroups.length 
+      ? localUserGroups 
+      : groups;
+
+    const finalExpenses = cloudData?.expenses?.length 
+      ? cloudData.expenses 
+      : localUserExpenses.length 
+      ? localUserExpenses 
+      : expenses;
+
+    const finalSettlements = cloudData?.settlements?.length 
+      ? cloudData.settlements 
+      : localUserSettlements.length 
+      ? localUserSettlements 
+      : settlements;
+
+    if (finalGroups.length > 0) setGroups(finalGroups);
+    if (finalExpenses.length > 0) setExpenses(finalExpenses);
+    if (finalSettlements.length > 0) setSettlements(finalSettlements);
+  }, [user?.id]);
+
+  // Sync to localStorage and Supabase Cloud whenever state changes
   useEffect(() => {
     saveLocalData(STORAGE_GROUPS, groups);
-  }, [groups]);
-
-  useEffect(() => {
     saveLocalData(STORAGE_EXPENSES, expenses);
-  }, [expenses]);
-
-  useEffect(() => {
     saveLocalData(STORAGE_SETTLEMENTS, settlements);
-  }, [settlements]);
+
+    if (user && (groups.length > 0 || expenses.length > 0 || settlements.length > 0)) {
+      syncToCloud(groups, expenses, settlements);
+    }
+  }, [groups, expenses, settlements, user, syncToCloud]);
 
   // Create Group
   const createGroup = useCallback((name: string, members: string[], description?: string, icon?: string): Group => {

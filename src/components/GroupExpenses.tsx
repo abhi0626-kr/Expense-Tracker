@@ -836,18 +836,27 @@ export const GroupExpenses = () => {
                     currentSimplifiedDebts.map((transfer, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between p-3 rounded-xl border border-border bg-background/80"
+                        className="p-3 rounded-xl border border-border bg-background/80 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 overflow-hidden"
                       >
-                        <div className="flex items-center gap-2 text-xs">
-                          <Badge variant="outline" className="font-semibold">{transfer.from}</Badge>
-                          <span className="text-muted-foreground">pays</span>
-                          <Badge variant="outline" className="font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400">{transfer.to}</Badge>
-                          <span className="font-bold text-foreground">₹{transfer.amount.toLocaleString("en-IN")}</span>
+                        <div className="flex items-center justify-between sm:justify-start gap-1.5 text-xs min-w-0 flex-wrap">
+                          <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                            <Badge variant="outline" className="font-semibold text-xs truncate max-w-[110px] sm:max-w-[140px]">
+                              {transfer.from}
+                            </Badge>
+                            <span className="text-muted-foreground text-[11px]">pays</span>
+                            <Badge variant="outline" className="font-semibold bg-violet-500/10 text-violet-600 dark:text-violet-400 text-xs truncate max-w-[110px] sm:max-w-[140px]">
+                              {transfer.to}
+                            </Badge>
+                          </div>
+                          <span className="font-extrabold text-foreground text-xs sm:text-sm ml-auto sm:ml-2 whitespace-nowrap">
+                            ₹{transfer.amount.toLocaleString("en-IN")}
+                          </span>
                         </div>
+
                         <Button
                           size="sm"
                           onClick={() => handleOpenSettleUp(transfer)}
-                          className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white"
+                          className="h-7 text-xs bg-green-600 hover:bg-green-700 text-white w-full sm:w-auto shrink-0 font-medium shadow-sm"
                         >
                           Record Settlement
                         </Button>
