@@ -56,6 +56,7 @@ import {
   Download,
   CheckSquare,
   Square,
+  RefreshCw,
 } from "lucide-react";
 import { useGroupExpenses, Group, GroupExpense } from "@/hooks/useGroupExpenses";
 import { useExpenseData } from "@/hooks/useExpenseData";
@@ -89,6 +90,7 @@ export const GroupExpenses = () => {
     getGroupMemberBalances,
     getSimplifiedDebts,
     getOverallUserBalance,
+    refreshCloudData,
   } = useGroupExpenses();
 
   const { addTransaction, accounts } = useExpenseData();
@@ -108,7 +110,7 @@ export const GroupExpenses = () => {
     name: "",
     description: "",
     icon: "🏖️",
-    membersInput: "Rahul, Priya",
+    membersInput: "Max Verstappen, Abhishek",
   });
 
   const [newMemberName, setNewMemberName] = useState("");
@@ -164,7 +166,7 @@ export const GroupExpenses = () => {
       name: "",
       description: "",
       icon: "🏖️",
-      membersInput: "Rahul, Priya",
+      membersInput: "Max Verstappen, Abhishek",
     });
   };
 
@@ -378,13 +380,25 @@ export const GroupExpenses = () => {
               <p className="text-xs text-muted-foreground">Manage shared trip expenses, house bills, and friends</p>
             </div>
 
-            <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white shadow-md">
-                  <Plus className="h-4 w-4 mr-1.5" />
-                  New Group
-                </Button>
-              </DialogTrigger>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => refreshCloudData(true)}
+                title="Sync Groups across devices via Supabase cloud"
+                className="border-violet-500/30 text-violet-600 dark:text-violet-400 hover:bg-violet-500/10 text-xs gap-1"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Sync Cloud</span>
+              </Button>
+
+              <Dialog open={isCreateGroupOpen} onOpenChange={setIsCreateGroupOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="bg-violet-600 hover:bg-violet-700 text-white shadow-md">
+                    <Plus className="h-4 w-4 mr-1.5" />
+                    New Group
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-[95vw] sm:max-w-md mx-auto">
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
@@ -450,8 +464,9 @@ export const GroupExpenses = () => {
               </DialogContent>
             </Dialog>
           </div>
+        </div>
 
-          {/* Groups Grid */}
+        {/* Groups Grid */}
           {groups.length === 0 ? (
             <Card className="border-dashed border-2 p-8 text-center bg-card/40">
               <Users className="h-12 w-12 mx-auto mb-3 text-muted-foreground opacity-40 animate-pulse" />

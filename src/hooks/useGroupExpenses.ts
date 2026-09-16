@@ -72,7 +72,7 @@ export const useGroupExpenses = () => {
   const [settlements, setSettlements] = useState<GroupSettlement[]>(() => getLocalData<GroupSettlement[]>(STORAGE_SETTLEMENTS, []));
   const [loading, setLoading] = useState(false);
 
-  // Helper to sync group data to Supabase user cloud metadata
+  // Helper to push group data to Supabase cloud
   const syncToCloud = useCallback(async (
     updatedGroups: Group[],
     updatedExpenses: GroupExpense[],
@@ -103,57 +103,111 @@ export const useGroupExpenses = () => {
     }
   }, [user]);
 
-  // Load cloud data upon user login / initialization
-  useEffect(() => {
+  // Fetch fresh user metadata from Supabase server & merge with local groups
+  const refreshCloudData = useCallback(async (manualToast = false) => {
     if (!user) return;
+    setLoading(true);
 
-    const userGroupKey = `${STORAGE_GROUPS}:${user.id}`;
-    const userExpenseKey = `${STORAGE_EXPENSES}:${user.id}`;
-    const userSettlementKey = `${STORAGE_SETTLEMENTS}:${user.id}`;
+    try {
+      const userGroupKey = `${STORAGE_GROUPS}:${user.id}`;
+      const userExpenseKey = `${STORAGE_EXPENSES}:${user.id}`;
+      const userSettlementKey = `${STORAGE_SETTLEMENTS}:${user.id}`;
 
-    const cloudData = user.user_metadata?.group_expenses_data as {
-      groups?: Group[];
-      expenses?: GroupExpense[];
-      settlements?: GroupSettlement[];
-    } | undefined;
+      // Fetch fresh user metadata directly from Supabase Auth server
+      const { data: { user: latestUser } } = await supabase.auth.getUser();
+      const targetUser = latestUser || user;
 
-    const localUserGroups = getLocalData<Group[]>(userGroupKey, []);
-    const localUserExpenses = getLocalData<GroupExpense[]>(userExpenseKey, []);
-    const localUserSettlements = getLocalData<GroupSettlement[]>(userSettlementKey, []);
+      const cloudData = targetUser.user_metadata?.group_expenses_data as {
+        groups?: Group[];
+        expenses?: GroupExpense[];
+        settlements?: GroupSettlement[];
+      } | undefined;
 
-    const finalGroups = cloudData?.groups?.length 
-      ? cloudData.groups 
-      : localUserGroups.length 
-      ? localUserGroups 
-      : groups;
+      const legacyGroups = getLocalData<Group[]>(STORAGE_GROUPS, []);
+      const userGroups = getLocalData<Group[]>(userGroupKey, []);
+      const cloudGroups = cloudData?.groups || [];
 
-    const finalExpenses = cloudData?.expenses?.length 
-      ? cloudData.expenses 
-      : localUserExpenses.length 
-      ? localUserExpenses 
-      : expenses;
+      const legacyExpenses = getLocalData<GroupExpense[]>(STORAGE_EXPENSES, []);
+      const userExpenses = getLocalData<GroupExpense[]>(userExpenseKey, []);
+      const cloudExpenses = cloudData?.expenses || [];
 
-    const finalSettlements = cloudData?.settlements?.length 
-      ? cloudData.settlements 
-      : localUserSettlements.length 
-      ? localUserSettlements 
-      : settlements;
+      const legacySettlements = getLocalData<GroupSettlement[]>(STORAGE_SETTLEMENTS, []);
+      const userSettlements = getLocalData<GroupSettlement[]>(userSettlementKey, []);
+      const cloudSettlements = cloudData?.settlements || [];
 
-    if (finalGroups.length > 0) setGroups(finalGroups);
-    if (finalExpenses.length > 0) setExpenses(finalExpenses);
-    if (finalSettlements.length > 0) setSettlements(finalSettlements);
-  }, [user?.id]);
+      // Merge Groups by ID
+      const groupMap = new Map<string, Group>();
+      legacyGroups.forEach((g) => groupMap.set(g.id, g));
+      userGroups.forEach((g) => groupMap.set(g.id, g));
+      cloudGroups.forEach((g) => groupMap.set(g.id, g));
+      const mergedGroups = Array.from(groupMap.values());
 
-  // Sync to localStorage and Supabase Cloud whenever state changes
-  useEffect(() => {
-    saveLocalData(STORAGE_GROUPS, groups);
-    saveLocalData(STORAGE_EXPENSES, expenses);
-    saveLocalData(STORAGE_SETTLEMENTS, settlements);
+      // Merge Expenses by ID
+      const expenseMap = new Map<string, GroupExpense>();
+      legacyExpenses.forEach((e) => expenseMap.set(e.id, e));
+      userExpenses.forEach((e) => expenseMap.set(e.id, e));
+      cloudExpenses.forEach((e) => expenseMap.set(e.id, e));
+      const mergedExpenses = Array.from(expenseMap.values());
 
-    if (user && (groups.length > 0 || expenses.length > 0 || settlements.length > 0)) {
-      syncToCloud(groups, expenses, settlements);
+      // Merge Settlements by ID
+      const settlementMap = new Map<string, GroupSettlement>();
+      legacySettlements.forEach((s) => settlementMap.set(s.id, s));
+      userSettlements.forEach((s) => settlementMap.set(s.id, s));
+      cloudSettlements.forEach((s) => settlementMap.set(s.id, s));
+      const mergedSettlements = Array.from(settlementMap.values());
+
+      if (mergedGroups.length > 0) setGroups(mergedGroups);
+      if (mergedExpenses.length > 0) setExpenses(mergedExpenses);
+      if (mergedSettlements.length > 0) setSettlements(mergedSettlements);
+
+      saveLocalData(STORAGE_GROUPS, mergedGroups);
+      saveLocalData(STORAGE_EXPENSES, mergedExpenses);
+      saveLocalData(STORAGE_SETTLEMENTS, mergedSettlements);
+
+      saveLocalData(userGroupKey, mergedGroups);
+      saveLocalData(userExpenseKey, mergedExpenses);
+      saveLocalData(userSettlementKey, mergedSettlements);
+
+      // Push merged result back to Supabase Cloud
+      if (mergedGroups.length > 0 || mergedExpenses.length > 0 || mergedSettlements.length > 0) {
+        await supabase.auth.updateUser({
+          data: {
+            group_expenses_data: {
+              groups: mergedGroups,
+              expenses: mergedExpenses,
+              settlements: mergedSettlements,
+              updated_at: new Date().toISOString(),
+            },
+          },
+        });
+      }
+
+      if (manualToast) {
+        toast({
+          title: "Cloud Sync Complete ☁️",
+          description: `Synced ${mergedGroups.length} groups across your devices!`,
+        });
+      }
+    } catch (err) {
+      console.error("Error refreshing cloud data:", err);
+      if (manualToast) {
+        toast({
+          title: "Sync Error",
+          description: "Could not connect to cloud server.",
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setLoading(false);
     }
-  }, [groups, expenses, settlements, user, syncToCloud]);
+  }, [user, toast]);
+
+  // Run cloud refresh on mount / user login
+  useEffect(() => {
+    if (user?.id) {
+      refreshCloudData(false);
+    }
+  }, [user?.id, refreshCloudData]);
 
   // Create Group
   const createGroup = useCallback((name: string, members: string[], description?: string, icon?: string): Group => {
@@ -400,5 +454,6 @@ export const useGroupExpenses = () => {
     getGroupMemberBalances,
     getSimplifiedDebts,
     getOverallUserBalance,
+    refreshCloudData,
   };
 };
