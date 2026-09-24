@@ -56,6 +56,7 @@ const TransactionHistory = () => {
   const { toast } = useToast();
   const { transactions, accounts, deleteTransaction, loading } = useExpenseData();
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterAccount, setFilterAccount] = useState<string>("all");
   const [filterType, setFilterType] = useState<"all" | "income" | "expense">("all");
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [selectedTransaction, setSelectedTransaction] = useState<DisplayTransaction | null>(null);
@@ -95,14 +96,20 @@ const TransactionHistory = () => {
 
   const handleCloseDetails = () => setSelectedTransaction(null);
 
-  const categories = Array.from(new Set(transactions.map(t => t.category)));
+  const categories = useMemo(() => {
+    const source = filterAccount === "all"
+      ? transactions
+      : transactions.filter((t) => t.account_id === filterAccount);
+    return Array.from(new Set(source.map((t) => t.category).filter(Boolean)));
+  }, [transactions, filterAccount]);
 
   const filteredTransactions = transactions
-    .filter(t => {
+    .filter((t) => {
       const matchesSearch = stripMetaTags(t.description || "").toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesAccount = filterAccount === "all" || t.account_id === filterAccount;
       const matchesType = filterType === "all" || t.type === filterType;
       const matchesCategory = filterCategory === "all" || t.category === filterCategory;
-      return matchesSearch && matchesType && matchesCategory;
+      return matchesSearch && matchesAccount && matchesType && matchesCategory;
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -301,8 +308,21 @@ const TransactionHistory = () => {
                     className="pl-10 bg-input border-border"
                   />
                 </div>
+                <Select value={filterAccount} onValueChange={(val) => { setFilterAccount(val); setFilterCategory("all"); }}>
+                  <SelectTrigger className="w-full sm:w-[160px] bg-input border-border">
+                    <SelectValue placeholder="Account" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Accounts</SelectItem>
+                    {accounts.map((acc) => (
+                      <SelectItem key={acc.id} value={acc.id}>
+                        {acc.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-                  <SelectTrigger className="w-full sm:w-[140px] bg-input border-border">
+                  <SelectTrigger className="w-full sm:w-[130px] bg-input border-border">
                     <SelectValue placeholder="Type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -433,9 +453,16 @@ const TransactionHistory = () => {
                         </div>
                         
                         <div className="space-y-1 min-w-0 flex-1">
-                          <p className="font-medium text-foreground truncate">
-                            {meta.isTransfer ? meta.typeLabel : transaction.category}
-                          </p>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="font-medium text-foreground truncate">
+                              {meta.isTransfer ? meta.typeLabel : transaction.category}
+                            </p>
+                            {!meta.isTransfer && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-500/10 text-violet-600 dark:text-violet-400 font-medium border border-violet-500/20 shrink-0">
+                                {accountLookup[transaction.account_id] || "Account"}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                             <span className="truncate">{renderDescription(displayTx, accountLookup)}</span>
                             <span className="whitespace-nowrap">• {formattedDate}</span>

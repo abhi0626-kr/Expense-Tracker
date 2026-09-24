@@ -13,6 +13,7 @@ import {
   BarChart3Icon,
   FileSpreadsheetIcon,
 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useExpenseData } from "@/hooks/useExpenseData";
 import { SpendingTrendChart } from "@/components/SpendingTrendChart";
 import { SpendingChart } from "@/components/SpendingChart";
@@ -28,26 +29,35 @@ const Reports = () => {
   const navigate = useNavigate();
   const { transactions, accounts, loading } = useExpenseData();
   const [period, setPeriod] = useState<"30d" | "monthly" | "weekly">("30d");
+  const [selectedAccount, setSelectedAccount] = useState<string>("all");
 
-  const totalBalance = useMemo(
-    () => accounts.reduce((sum, account) => sum + account.balance, 0),
-    [accounts]
-  );
+  const filteredTransactions = useMemo(() => {
+    if (selectedAccount === "all") return transactions;
+    return transactions.filter((t) => t.account_id === selectedAccount);
+  }, [transactions, selectedAccount]);
+
+  const totalBalance = useMemo(() => {
+    if (selectedAccount === "all") {
+      return accounts.reduce((sum, account) => sum + account.balance, 0);
+    }
+    const acc = accounts.find((a) => a.id === selectedAccount);
+    return acc ? acc.balance : 0;
+  }, [accounts, selectedAccount]);
 
   const totalIncome = useMemo(
     () =>
-      transactions
+      filteredTransactions
         .filter((t) => t.type === "income")
         .reduce((sum, t) => sum + t.amount, 0),
-    [transactions]
+    [filteredTransactions]
   );
 
   const totalExpenses = useMemo(
     () =>
-      transactions
+      filteredTransactions
         .filter((t) => t.type === "expense")
         .reduce((sum, t) => sum + t.amount, 0),
-    [transactions]
+    [filteredTransactions]
   );
 
   const netSavings = totalIncome - totalExpenses;
@@ -55,7 +65,7 @@ const Reports = () => {
   const spendingCategories = useMemo(() => {
     const categoryMap = new Map<string, number>();
 
-    transactions
+    filteredTransactions
       .filter((t) => t.type === "expense")
       .forEach((t) => {
         const current = categoryMap.get(t.category) || 0;
@@ -65,7 +75,7 @@ const Reports = () => {
     return Array.from(categoryMap.entries())
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount);
-  }, [transactions]);
+  }, [filteredTransactions]);
 
   if (loading) {
     return (
@@ -101,7 +111,20 @@ const Reports = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+              <Select value={selectedAccount} onValueChange={setSelectedAccount}>
+                <SelectTrigger className="h-8 text-xs w-[140px] sm:w-[160px] bg-card border-border">
+                  <SelectValue placeholder="All Accounts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Accounts</SelectItem>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               <Button
                 variant="outline"
                 size="sm"
@@ -135,11 +158,11 @@ const Reports = () => {
 
               <CardContent className="pt-4">
                 {period === "monthly" ? (
-                  <MonthlyComparisonChart transactions={transactions} hideCardHeader={true} />
+                  <MonthlyComparisonChart transactions={filteredTransactions} hideCardHeader={true} />
                 ) : period === "weekly" ? (
-                  <WeeklyComparisonChart transactions={transactions} hideCardHeader={true} />
+                  <WeeklyComparisonChart transactions={filteredTransactions} hideCardHeader={true} />
                 ) : (
-                  <SpendingTrendChart transactions={transactions} hideCardHeader={true} />
+                  <SpendingTrendChart transactions={filteredTransactions} hideCardHeader={true} />
                 )}
               </CardContent>
             </Card>
@@ -155,7 +178,7 @@ const Reports = () => {
                 </CardTitle>
               </CardHeader>
               <CardContent className="min-h-[280px]">
-                <SpendingChart transactions={transactions} hideCardHeader={true} />
+                <SpendingChart transactions={filteredTransactions} hideCardHeader={true} />
               </CardContent>
             </Card>
 
@@ -194,8 +217,8 @@ const Reports = () => {
 
           {/* Section 3: Monthly & Category Trends */}
           <section className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
-            <MonthlyComparisonChart transactions={transactions} />
-            <CategoryTrendChart transactions={transactions} />
+            <MonthlyComparisonChart transactions={filteredTransactions} />
+            <CategoryTrendChart transactions={filteredTransactions} />
           </section>
 
           {/* Section 4: Summary Overview Cards Relocated to the Bottom */}
